@@ -25,6 +25,10 @@ int main(int argc, char* argv[]){
     }
     Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 
+    SDL_Surface* textureSurf = IMG_Load("./TextureImg.png");
+    if(textureSurf->format->format != SDL_PIXELFORMAT_ABGR8888){
+        textureSurf = SDL_ConvertSurfaceFormat(textureSurf, SDL_PIXELFORMAT_ABGR8888, 0);
+    }
 
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks();
@@ -143,17 +147,30 @@ int main(int argc, char* argv[]){
             if(wallHeight >= SCREEN_HEIGHT){
                 wallHeight = SCREEN_HEIGHT;
                 drawStart = 0;
+            }else if(wallHeight == 0){
+                continue;
             }
 
             Uint16 j = 0;
             for(; j < drawStart; j++) pixels[i + SCREEN_WIDTH * j] = 0x330000;
 
+            //Get textureColumn
+            float texCol = (steppingInX) ? (player.yPos + yFinish) : (player.xPos + xFinish);
+            texCol -= (int)texCol; //only get the decimal part
+            texCol *= textureSurf->w;
+
+            float texRow = 0; 
+            float texRowStep = (float)textureSurf->h/wallHeight;
+            for(; j < drawStart + wallHeight; j++){
+                Uint32* color = (Uint32*)textureSurf->pixels + (int)texCol + (textureSurf->w) * (int)texRow;
+                pixels[i + SCREEN_WIDTH * j] = *color; //ADD SHADING
+                texRow += texRowStep;
+            }
             
-            for(; j < drawStart + wallHeight; j++) pixels[i + SCREEN_WIDTH * j] = 0x0000AA - 0x000011*steppingInX;
+            //for(; j < drawStart + wallHeight; j++) pixels[i + SCREEN_WIDTH * j] = 0x0000AA - 0x000011*steppingInX;
 
             for(; j < SCREEN_HEIGHT; j++) pixels[i + SCREEN_WIDTH * j] = 0x008800;
         }
-        
 
         SDL_UpdateTexture(screenTexture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
@@ -164,6 +181,7 @@ int main(int argc, char* argv[]){
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_DestroyTexture(screenTexture);
+    SDL_FreeSurface(textureSurf);
     SDL_Quit();
     return 0;
 }
