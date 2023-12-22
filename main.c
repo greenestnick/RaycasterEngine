@@ -25,7 +25,7 @@ int main(int argc, char* argv[]){
     }
     Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 
-    SDL_Surface* textureSurf = IMG_Load("./TextureImg.png");
+    SDL_Surface* textureSurf = IMG_Load("./wolftextures.png");
     if(textureSurf->format->format != SDL_PIXELFORMAT_ABGR8888){
         textureSurf = SDL_ConvertSurfaceFormat(textureSurf, SDL_PIXELFORMAT_ABGR8888, 0);
     }
@@ -84,8 +84,8 @@ int main(int argc, char* argv[]){
         for(Uint16 i = 0; i < SCREEN_WIDTH; i++){
             float camPlaneNorm = i / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
             
-            float xPlane = -player.yDir;
-            float yPlane = player.xDir;
+            float xPlane = -player.yDir * 0.75;
+            float yPlane = player.xDir * 0.75;
 
             float xRay = player.xDir + xPlane * camPlaneNorm;
             float yRay = player.yDir + yPlane * camPlaneNorm;
@@ -130,6 +130,7 @@ int main(int argc, char* argv[]){
 
                     xFinish = xRay/rayNorm * rayLength;
                     yFinish = yRay/rayNorm * rayLength;
+
                     break;
                 }
 
@@ -159,11 +160,11 @@ int main(int argc, char* argv[]){
             //Get textureColumn
             float texCol = (steppingInX) ? (player.yPos + yFinish) : (player.xPos + xFinish);
             texCol -= (int)texCol; //only get the decimal part
-            texCol *= textureSurf->w;
+            texCol *= TEX_WIDTH;
 
             float texRowStep = (textureSurf->h - 2*texRow) / wallHeight;
             for(; j < drawStart + wallHeight; j++){
-                Uint32* color = (Uint32*)textureSurf->pixels + (int)texCol + (textureSurf->w) * (int)texRow;
+                Uint32* color = (Uint32*)textureSurf->pixels + (int)texCol + (TEX_WIDTH * map[xTile + MAPSIZE * yTile]) + (textureSurf->w) * (int)texRow;
                 pixels[i + SCREEN_WIDTH * j] = *color; //ADD SHADING
                 texRow += texRowStep;
             }

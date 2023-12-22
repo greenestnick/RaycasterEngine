@@ -9,6 +9,7 @@
 #define WIN_TITLE "Window Title Undefined"
 
 #define MAX_SLOPE 10000000000
+#define TEX_WIDTH 32
 
 #define UPDATE_TIMER_MS 16 //about 60 ticks per second
 
@@ -20,6 +21,7 @@ typedef struct{
     float xDir;
     float yDir;
 }Player;
+
 
 #define MAPSIZE 24
 int map[MAPSIZE * MAPSIZE]=
