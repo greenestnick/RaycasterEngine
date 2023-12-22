@@ -107,8 +107,8 @@ int main(int argc, char* argv[]){
             float xOffset = xTile - player.xPos + (xRay > 0);
             float yOffset = yTile - player.yPos + (yRay > 0);
             
-            float xExtend = ((xOffset<0)?-xOffset:xOffset) * xStep;
-            float yExtend = ((yOffset<0)?-yOffset:yOffset) * yStep;
+            float xExtend = ((xOffset < 0) ? -xOffset : xOffset) * xStep;
+            float yExtend = ((yOffset < 0) ? -yOffset : yOffset) * yStep;
 
             float xFinish, yFinish;
 
@@ -143,8 +143,10 @@ int main(int argc, char* argv[]){
             float wallHeight = (float)SCREEN_HEIGHT / perpDist;
             int drawStart = (SCREEN_HEIGHT - wallHeight) / 2;
 
-            //Clamp Wall Height if its larger than the screen
+            float texRow = 0; 
+            //If the wall is larger than the screen, we clamp the height and start the texture sampling further down and end further up
             if(wallHeight >= SCREEN_HEIGHT){
+                texRow = (1 - SCREEN_HEIGHT/wallHeight) * 0.5 * textureSurf->h;
                 wallHeight = SCREEN_HEIGHT;
                 drawStart = 0;
             }else if(wallHeight == 0){
@@ -153,14 +155,13 @@ int main(int argc, char* argv[]){
 
             Uint16 j = 0;
             for(; j < drawStart; j++) pixels[i + SCREEN_WIDTH * j] = 0x330000;
-
+            
             //Get textureColumn
             float texCol = (steppingInX) ? (player.yPos + yFinish) : (player.xPos + xFinish);
             texCol -= (int)texCol; //only get the decimal part
             texCol *= textureSurf->w;
 
-            float texRow = 0; 
-            float texRowStep = (float)textureSurf->h/wallHeight;
+            float texRowStep = (textureSurf->h - 2*texRow) / wallHeight;
             for(; j < drawStart + wallHeight; j++){
                 Uint32* color = (Uint32*)textureSurf->pixels + (int)texCol + (textureSurf->w) * (int)texRow;
                 pixels[i + SCREEN_WIDTH * j] = *color; //ADD SHADING
