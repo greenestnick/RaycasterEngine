@@ -84,8 +84,8 @@ int main(int argc, char* argv[]){
         for(Uint16 i = 0; i < SCREEN_WIDTH; i++){
             float camPlaneNorm = i / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
             
-            float xPlane = -player.yDir * 0.75;
-            float yPlane = player.xDir * 0.75;
+            float xPlane = -player.yDir;
+            float yPlane = player.xDir;
 
             float xRay = player.xDir + xPlane * camPlaneNorm;
             float yRay = player.yDir + yPlane * camPlaneNorm;
