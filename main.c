@@ -80,12 +80,48 @@ int main(int argc, char* argv[]){
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
+        float xPlane = -player.yDir;
+        float yPlane = player.xDir;
+
+        //Rendering the floor and ceiling
+        for(Uint16 i = 0; i < SCREEN_HEIGHT; i++){
+            const float zPlayer = SCREEN_HEIGHT / 2.0;
+
+            //Horizontal distance from player to floor.
+            //As if we projected a vector from the player (through the camera plane) to the floor midpoint onto the floor. 
+            int screenPitch = i - SCREEN_HEIGHT / 2.0;
+            float rowDist = zPlayer / screenPitch;
+            if(screenPitch == 0) continue;
+
+            //First vector starts looking at leftmost side of the camera plane
+            float xFloor = player.xPos + rowDist * (player.xDir - xPlane);
+            float yFloor = player.yPos + rowDist * (player.yDir - yPlane);
+            float xFloorStep = rowDist * 2*xPlane / SCREEN_WIDTH;
+            float yFloorStep = rowDist * 2*yPlane / SCREEN_WIDTH;
+
+            //Scanline across the screen
+            for(Uint16 j = 0; j < SCREEN_WIDTH; j++){
+                //We could have a floor/ceiling tile map using the truncated xFloor/yFloor to get custom tiles
+                
+                float texCol = (xFloor - (int)xFloor) * TEX_SIZE;
+                float texRow = (yFloor - (int)yFloor) * TEX_SIZE;
+
+                Uint32 floorColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * 6) + (textureSurf->w) * (int)texRow);
+                Uint32 ceilingColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * 7) + (textureSurf->w) * (int)texRow);
+                //Render the floor
+                pixels[j + SCREEN_WIDTH * i] = floorColor;
+                //render the ceiling
+                pixels[j + SCREEN_WIDTH * (SCREEN_HEIGHT - i - 1)] = (ceilingColor>>1) & 0x7F7F7F7F;
+
+                xFloor += xFloorStep;
+                yFloor += yFloorStep;    
+            }
+        }
+
+
         //Raycast
         for(Uint16 i = 0; i < SCREEN_WIDTH; i++){
             float camPlaneNorm = i / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
-            
-            float xPlane = -player.yDir;
-            float yPlane = player.xDir;
 
             float xRay = player.xDir + xPlane * camPlaneNorm;
             float yRay = player.yDir + yPlane * camPlaneNorm;
@@ -147,31 +183,32 @@ int main(int argc, char* argv[]){
             float texRow = 0; 
             //If the wall is larger than the screen, we clamp the height and start the texture sampling further down and end further up
             if(wallHeight >= SCREEN_HEIGHT){
-                texRow = (1 - SCREEN_HEIGHT/wallHeight) * 0.5 * textureSurf->h;
+                texRow = (1 - SCREEN_HEIGHT/wallHeight) * 0.5 * TEX_SIZE;
                 wallHeight = SCREEN_HEIGHT;
                 drawStart = 0;
             }else if(wallHeight == 0){
                 continue;
             }
 
-            Uint16 j = 0;
-            for(; j < drawStart; j++) pixels[i + SCREEN_WIDTH * j] = 0x330000;
+            Uint16 j = drawStart;
+            //for(; j < drawStart; j++) pixels[i + SCREEN_WIDTH * j] = 0x330000;
             
             //Get textureColumn
             float texCol = (steppingInX) ? (player.yPos + yFinish) : (player.xPos + xFinish);
             texCol -= (int)texCol; //only get the decimal part
-            texCol *= TEX_WIDTH;
+            texCol *= TEX_SIZE;
 
-            float texRowStep = (textureSurf->h - 2*texRow) / wallHeight;
+            float texRowStep = (TEX_SIZE - 2*texRow) / wallHeight;
             for(; j < drawStart + wallHeight; j++){
-                Uint32* color = (Uint32*)textureSurf->pixels + (int)texCol + (TEX_WIDTH * map[xTile + MAPSIZE * yTile]) + (textureSurf->w) * (int)texRow;
-                pixels[i + SCREEN_WIDTH * j] = *color; //ADD SHADING
+                Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * map[xTile + MAPSIZE * yTile]) + (textureSurf->w) * (int)texRow);
+                if((!steppingInX && yRay > 0) || steppingInX && xRay > 0) color = (color >> 1) & 0x7F7F7F7F;
+                pixels[i + SCREEN_WIDTH * j] = color; //ADD SHADING
                 texRow += texRowStep;
             }
             
             //for(; j < drawStart + wallHeight; j++) pixels[i + SCREEN_WIDTH * j] = 0x0000AA - 0x000011*steppingInX;
 
-            for(; j < SCREEN_HEIGHT; j++) pixels[i + SCREEN_WIDTH * j] = 0x008800;
+            //for(; j < SCREEN_HEIGHT; j++) pixels[i + SCREEN_WIDTH * j] = 0x008800;
         }
 
         SDL_UpdateTexture(screenTexture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
