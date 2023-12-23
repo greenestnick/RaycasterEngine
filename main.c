@@ -29,6 +29,11 @@ int main(int argc, char* argv[]){
     if(textureSurf->format->format != SDL_PIXELFORMAT_ABGR8888){
         textureSurf = SDL_ConvertSurfaceFormat(textureSurf, SDL_PIXELFORMAT_ABGR8888, 0);
     }
+  
+    SDL_Surface* spriteSurf = IMG_Load("./wolfsprites.png");
+    if(spriteSurf->format->format != SDL_PIXELFORMAT_ABGR8888){
+        spriteSurf = SDL_ConvertSurfaceFormat(spriteSurf, SDL_PIXELFORMAT_ABGR8888, 0);
+    }
 
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks();
@@ -106,8 +111,8 @@ int main(int argc, char* argv[]){
                 float texCol = (xFloor - (int)xFloor) * TEX_SIZE;
                 float texRow = (yFloor - (int)yFloor) * TEX_SIZE;
 
-                Uint32 floorColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * 6) + (textureSurf->w) * (int)texRow);
-                Uint32 ceilingColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * 7) + (textureSurf->w) * (int)texRow);
+                Uint32 floorColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * 7) + (textureSurf->w) * (int)texRow);
+                Uint32 ceilingColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * 6) + (textureSurf->w) * (int)texRow);
                 //Render the floor
                 pixels[j + SCREEN_WIDTH * i] = floorColor;
                 //render the ceiling
@@ -120,6 +125,7 @@ int main(int argc, char* argv[]){
 
 
         //Raycast
+        float zBuffer[SCREEN_WIDTH];
         for(Uint16 i = 0; i < SCREEN_WIDTH; i++){
             float camPlaneNorm = i / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
 
@@ -177,6 +183,7 @@ int main(int argc, char* argv[]){
 
             //================================================Rendering Wall
             float perpDist = player.xDir * xFinish + player.yDir * yFinish;
+            zBuffer[i] = perpDist;
             float wallHeight = (float)SCREEN_HEIGHT / perpDist;
             int drawStart = (SCREEN_HEIGHT - wallHeight) / 2;
 
@@ -186,8 +193,6 @@ int main(int argc, char* argv[]){
                 texRow = (1 - SCREEN_HEIGHT/wallHeight) * 0.5 * TEX_SIZE;
                 wallHeight = SCREEN_HEIGHT;
                 drawStart = 0;
-            }else if(wallHeight == 0){
-                continue;
             }
 
             Uint16 j = drawStart;
@@ -202,6 +207,7 @@ int main(int argc, char* argv[]){
             for(; j < drawStart + wallHeight; j++){
                 Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * map[xTile + MAPSIZE * yTile]) + (textureSurf->w) * (int)texRow);
                 if((!steppingInX && yRay > 0) || steppingInX && xRay > 0) color = (color >> 1) & 0x7F7F7F7F;
+                
                 pixels[i + SCREEN_WIDTH * j] = color; //ADD SHADING
                 texRow += texRowStep;
             }
@@ -211,6 +217,69 @@ int main(int argc, char* argv[]){
             //for(; j < SCREEN_HEIGHT; j++) pixels[i + SCREEN_WIDTH * j] = 0x008800;
         }
 
+
+
+        //Render Sprites
+        float xSprite = 8.5, ySprite = 3.5;
+
+        //Get Relative dist to player
+        float xDiff = xSprite - player.xPos, yDiff = ySprite - player.yPos;
+        //Transform sprite world coords into camera coords (direction and plane as basis vecs)
+        float denom = xPlane * player.yDir - yPlane * player.xDir;
+        float xSpriteCam = (player.yDir * xDiff - player.xDir * yDiff) / denom;
+        float ySpriteCam = (-yPlane * xDiff + xPlane * yDiff) / denom;
+       
+        //Only render if in front of the player
+        if(ySpriteCam <= 0) goto exit_sprite_render;
+
+        //get the screen width and height
+        float spriteSize = (float)SCREEN_HEIGHT / ySpriteCam;
+        int xScreenPos = (SCREEN_WIDTH / 2.0) * (1 + xSpriteCam/ySpriteCam); //for a 90deg FOV, the view triangle's slope is 1, compare that to the slope of the triangle formed by the player and object
+        
+        //render
+        int xStart = (int)(xScreenPos - spriteSize/2.0);
+        int xEnd = xStart + spriteSize;
+        int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0);
+        int yEnd = yStart + spriteSize;
+        
+        float texCol = 0, texColStep = TEX_SIZE / spriteSize;
+        if(xStart < 0){
+            texCol = -xStart/spriteSize * TEX_SIZE;
+            xStart = 0;
+            xEnd += xStart;
+        }else if(xStart > SCREEN_WIDTH){
+            goto exit_sprite_render;
+        }
+        if(xEnd < 0) goto exit_sprite_render;
+        else if(xEnd > SCREEN_WIDTH) xEnd = SCREEN_WIDTH;
+
+        float texRowStart = 0, texRowStep = TEX_SIZE / spriteSize;
+        if(yStart < 0){
+            texRowStart = -yStart / spriteSize * TEX_SIZE;
+            yStart = 0;
+        }else if(yStart > SCREEN_HEIGHT) goto exit_sprite_render;
+        
+        if(yEnd > SCREEN_HEIGHT){
+            yEnd = SCREEN_HEIGHT;
+        }else if(yEnd < 0) goto exit_sprite_render;
+
+
+        for(Uint16 x = (Uint16)xStart; x < xEnd; x++){
+            //if(zBuffer[x] < ySpriteCam) continue;
+
+            float texRow = texRowStart;
+            for(Uint16 y = (Uint16)yStart; y < yEnd; y++){
+                Uint32 color = *((Uint32*)spriteSurf->pixels + (int)texCol + (TEX_SIZE*1) + (spriteSurf->w) * (int)texRow);
+                texRow += texRowStep;
+                
+                if(color >> 24 == 0) continue;
+                pixels[x + SCREEN_WIDTH * y] = color;
+                
+            }
+            texCol += texColStep;
+        }
+        
+        exit_sprite_render:
         SDL_UpdateTexture(screenTexture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
         SDL_RenderPresent(renderer);
