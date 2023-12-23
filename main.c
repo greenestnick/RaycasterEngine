@@ -77,7 +77,7 @@ int main(int argc, char* argv[]){
             mouse.x = xNew;
 
             float oldDirX = player.xDir;
-            float angVel = 3.14 * mouse.xVel/(SCREEN_WIDTH/2);
+            float angVel = 5.0 * mouse.xVel/(SCREEN_WIDTH / 2.0);
             mouse.xVel = 0;
             player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
             player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
@@ -97,9 +97,10 @@ int main(int argc, char* argv[]){
 
             player.xPos += player.xDir/15 * (keys[0] - keys[2]);   
             player.yPos += player.yDir/15 * (keys[0] - keys[2]);
-
-            player.xPos -= player.yDir/15 * (keys[3] - keys[1]);   
-            player.yPos += player.xDir/15 * (keys[3] - keys[1]);
+            if(!keys[0] && !keys[2]){
+                player.xPos -= player.yDir/15 * (keys[3] - keys[1]);   
+                player.yPos += player.xDir/15 * (keys[3] - keys[1]);
+            }
         }
         
 
@@ -240,71 +241,76 @@ int main(int argc, char* argv[]){
         }
 
 
-
         //Render Sprites
-        float xSprite = 8.5, ySprite = 3.5;
+        float xSprite = 0, ySprite = 0;
+        float xSprites[2] = {8.5, 16.5}; 
+        float ySprites[2] = {3.5, 5.5};
+        Uint8 typeSprites[2] = {2, 0};
+        for(Uint32 i = 0; i < 2; i++){
+            xSprite = xSprites[i];
+            ySprite = ySprites[i];
 
-        //Get Relative dist to player
-        float xDiff = xSprite - player.xPos, yDiff = ySprite - player.yPos;
-        //Transform sprite world coords into camera coords (direction and plane as basis vecs)
-        float denom = xPlane * player.yDir - yPlane * player.xDir;
-        float xSpriteCam = (player.yDir * xDiff - player.xDir * yDiff) / denom;
-        float ySpriteCam = (-yPlane * xDiff + xPlane * yDiff) / denom;
+            //Get Relative dist to player
+            float xDiff = xSprite - player.xPos, yDiff = ySprite - player.yPos;
+            //Transform sprite world coords into camera coords (direction and plane as basis vecs)
+            float denom = xPlane * player.yDir - yPlane * player.xDir;
+            float xSpriteCam = (player.yDir * xDiff - player.xDir * yDiff) / denom;
+            float ySpriteCam = (-yPlane * xDiff + xPlane * yDiff) / denom;
        
-        //Only render if in front of the player
-        if(ySpriteCam <= 0) goto exit_sprite_render;
+            //Only render if in front of the player
+            if(ySpriteCam <= 0) continue;
 
-        //get the screen width and height
-        float spriteSize = (float)SCREEN_HEIGHT / ySpriteCam;
-        int xScreenPos = (SCREEN_WIDTH / 2.0) * (1 + xSpriteCam/ySpriteCam); //for a 90deg FOV, the view triangle's slope is 1, compare that to the slope of the triangle formed by the player and object
-        
-        //render
-        int xStart = (int)(xScreenPos - spriteSize/2.0);
-        int xEnd = xStart + spriteSize;
-        int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0);
-        int yEnd = yStart + spriteSize;
-        
-        float texCol = 0, texColStep = TEX_SIZE / spriteSize;
-        if(xStart < 0){
-            texCol = -xStart/spriteSize * TEX_SIZE;
-            xStart = 0;
-            xEnd += xStart;
-        }else if(xStart > SCREEN_WIDTH){
-            goto exit_sprite_render;
-        }
-        if(xEnd < 0) goto exit_sprite_render;
-        else if(xEnd > SCREEN_WIDTH) xEnd = SCREEN_WIDTH;
-
-        float texRowStart = 0, texRowStep = TEX_SIZE / spriteSize;
-        if(yStart < 0){
-            texRowStart = -yStart / spriteSize * TEX_SIZE;
-            yStart = 0;
-        }else if(yStart > SCREEN_HEIGHT) goto exit_sprite_render;
-        
-        if(yEnd > SCREEN_HEIGHT){
-            yEnd = SCREEN_HEIGHT;
-        }else if(yEnd < 0) goto exit_sprite_render;
-
-
-        for(Uint16 x = (Uint16)xStart; x < xEnd; x++){
-            if(zBuffer[x] < ySpriteCam){
-                texCol += texColStep;
+            //get the screen width and height
+            float spriteSize = (float)SCREEN_HEIGHT / ySpriteCam;
+            int xScreenPos = (SCREEN_WIDTH / 2.0) * (1 + xSpriteCam/ySpriteCam); //for a 90deg FOV, the view triangle's slope is 1, compare that to the slope of the triangle formed by the player and object
+            
+            //render
+            int xStart = (int)(xScreenPos - spriteSize/2.0);
+            int xEnd = xStart + spriteSize;
+            int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0);
+            int yEnd = yStart + spriteSize;
+            
+            float texCol = 0, texColStep = TEX_SIZE / spriteSize;
+            if(xStart < 0){
+                texCol = -xStart/spriteSize * TEX_SIZE;
+                xStart = 0;
+                xEnd += xStart;
+            }else if(xStart > SCREEN_WIDTH){
                 continue;
             }
+            if(xEnd < 0) continue;
+            else if(xEnd > SCREEN_WIDTH) xEnd = SCREEN_WIDTH;
 
-            float texRow = texRowStart;
-            for(Uint16 y = (Uint16)yStart; y < yEnd; y++){
-                Uint32 color = *((Uint32*)spriteSurf->pixels + (int)texCol + (TEX_SIZE*1) + (spriteSurf->w) * (int)texRow);
-                texRow += texRowStep;
-                
-                if(color >> 24 == 0) continue;
-                pixels[x + SCREEN_WIDTH * y] = color;
-                
+            float texRowStart = 0, texRowStep = TEX_SIZE / spriteSize;
+            if(yStart < 0){
+                texRowStart = -yStart / spriteSize * TEX_SIZE;
+                yStart = 0;
+            }else if(yStart > SCREEN_HEIGHT) continue;
+            
+            if(yEnd > SCREEN_HEIGHT){
+                yEnd = SCREEN_HEIGHT;
+            }else if(yEnd < 0) continue;
+
+
+            for(Uint16 x = (Uint16)xStart; x < xEnd; x++){
+                if(zBuffer[x] < ySpriteCam){
+                    texCol += texColStep;
+                    continue;
+                }
+
+                float texRow = texRowStart;
+                for(Uint16 y = (Uint16)yStart; y < yEnd; y++){
+                    Uint32 color = *((Uint32*)spriteSurf->pixels + (int)texCol + (TEX_SIZE*typeSprites[i]) + (spriteSurf->w) * (int)texRow);
+                    texRow += texRowStep;
+                    
+                    if(color >> 24 == 0) continue;
+                    pixels[x + SCREEN_WIDTH * y] = color;
+                    
+                }
+                texCol += texColStep;
             }
-            texCol += texColStep;
         }
         
-        exit_sprite_render:
         SDL_UpdateTexture(screenTexture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
         SDL_RenderPresent(renderer);
