@@ -22,6 +22,10 @@ typedef struct{
     float yDir;
 }Player;
 
+typedef struct{
+  Uint32 x;
+  int xVel;
+}Mouse;
 
 #define MAPSIZE 24
 int map[MAPSIZE * MAPSIZE]=

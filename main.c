@@ -1,5 +1,7 @@
 #include "main.h"
 
+//TODO: Must change screen sizes for window resize events
+
 int main(int argc, char* argv[]){
 
     if(SDL_Init(SDL_INIT_EVERYTHING) != 0){
@@ -36,12 +38,15 @@ int main(int argc, char* argv[]){
     }
 
     SDL_Event event;
-    Uint32 lastTime = SDL_GetTicks();
+    Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = SDL_GetTicks();
 
     Player player = {2.5, 2.5, 0.707, 0.707};
+    Mouse mouse = {0, 0};
     Uint8 keys[6] = {0,0,0,0,0,0};
     while(1){
-        
+        Uint32 msPassed = SDL_GetTicks() - lastTimeFrame; 
+        lastTimeFrame = SDL_GetTicks();
+
         //Event Handling 
         SDL_PollEvent(&event);
         if(event.type == SDL_QUIT){
@@ -65,7 +70,26 @@ int main(int argc, char* argv[]){
                 case SDLK_q: keys[4] = 0; break;
                 case SDLK_e: keys[5] = 0; break;
             }
+        }else if(event.type == SDL_MOUSEMOTION){
+            int xNew = 0, yNew = 0;
+            SDL_GetMouseState(&xNew, NULL);
+            mouse.xVel = xNew - mouse.x;
+            mouse.x = xNew;
+
+            float oldDirX = player.xDir;
+            float angVel = 3.14 * mouse.xVel/(SCREEN_WIDTH/2);
+            mouse.xVel = 0;
+            player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
+            player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
+
+            char titleString[20];
+            sprintf(titleString, "FPS: %05d", msPassed * 1000);
+            SDL_SetWindowTitle(window, titleString);
         }
+        if(event.window.event == SDL_WINDOWEVENT_ENTER){
+            SDL_GetMouseState(&mouse.x, NULL);
+        }
+        
 
         //Update
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
@@ -74,10 +98,8 @@ int main(int argc, char* argv[]){
             player.xPos += player.xDir/15 * (keys[0] - keys[2]);   
             player.yPos += player.yDir/15 * (keys[0] - keys[2]);
 
-            float oldDirX = player.xDir;
-            float angVel = 0.03 * (keys[5] - keys[4]);
-            player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
-            player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
+            player.xPos -= player.yDir/15 * (keys[3] - keys[1]);   
+            player.yPos += player.xDir/15 * (keys[3] - keys[1]);
         }
         
 
