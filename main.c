@@ -287,7 +287,10 @@ int main(int argc, char* argv[]){
 
 
         for(Uint16 x = (Uint16)xStart; x < xEnd; x++){
-            //if(zBuffer[x] < ySpriteCam) continue;
+            if(zBuffer[x] < ySpriteCam){
+                texCol += texColStep;
+                continue;
+            }
 
             float texRow = texRowStart;
             for(Uint16 y = (Uint16)yStart; y < yEnd; y++){
