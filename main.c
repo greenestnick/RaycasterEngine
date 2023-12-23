@@ -20,7 +20,7 @@ int main(int argc, char* argv[]){
         return 1;
     }
 
-    SDL_Texture* screenTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+    SDL_Texture* screenTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
     if(!screenTexture){
         printf("error creating texture\n");
         return 1;
@@ -28,21 +28,23 @@ int main(int argc, char* argv[]){
     Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 
     SDL_Surface* textureSurf = IMG_Load("./wolftextures.png");
-    if(textureSurf->format->format != SDL_PIXELFORMAT_ABGR8888){
-        textureSurf = SDL_ConvertSurfaceFormat(textureSurf, SDL_PIXELFORMAT_ABGR8888, 0);
+    if(textureSurf->format->format != SDL_PIXELFORMAT_ARGB8888){
+        textureSurf = SDL_ConvertSurfaceFormat(textureSurf, SDL_PIXELFORMAT_ARGB8888, 0);
     }
   
     SDL_Surface* spriteSurf = IMG_Load("./wolfsprites.png");
-    if(spriteSurf->format->format != SDL_PIXELFORMAT_ABGR8888){
-        spriteSurf = SDL_ConvertSurfaceFormat(spriteSurf, SDL_PIXELFORMAT_ABGR8888, 0);
+    if(spriteSurf->format->format != SDL_PIXELFORMAT_ARGB8888){
+        spriteSurf = SDL_ConvertSurfaceFormat(spriteSurf, SDL_PIXELFORMAT_ARGB8888, 0);
     }
 
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = SDL_GetTicks();
 
     Player player = {2.5, 2.5, 0.707, 0.707};
+    float xPlane = -player.yDir;
+    float yPlane = player.xDir;
     Mouse mouse = {0, 0};
-    Uint8 keys[6] = {0,0,0,0,0,0};
+    Uint8 keys[4] = {0,0,0,0};
     while(1){
         Uint32 msPassed = SDL_GetTicks() - lastTimeFrame; 
         lastTimeFrame = SDL_GetTicks();
@@ -58,8 +60,6 @@ int main(int argc, char* argv[]){
                 case SDLK_a: keys[1] = 1; break;
                 case SDLK_s: keys[2] = 1; break;
                 case SDLK_d: keys[3] = 1; break;
-                case SDLK_q: keys[4] = 1; break;
-                case SDLK_e: keys[5] = 1; break;
             }
         }else if(event.type == SDL_KEYUP){
             switch(event.key.keysym.sym){
@@ -67,8 +67,6 @@ int main(int argc, char* argv[]){
                 case SDLK_a: keys[1] = 0; break;
                 case SDLK_s: keys[2] = 0; break;
                 case SDLK_d: keys[3] = 0; break;
-                case SDLK_q: keys[4] = 0; break;
-                case SDLK_e: keys[5] = 0; break;
             }
         }else if(event.type == SDL_MOUSEMOTION){
             int xNew = 0, yNew = 0;
@@ -81,7 +79,9 @@ int main(int argc, char* argv[]){
             mouse.xVel = 0;
             player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
             player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
-
+            xPlane = -player.yDir;
+            yPlane = player.xDir;
+            
             char titleString[20];
             sprintf(titleString, "FPS: %05d", msPassed * 1000);
             SDL_SetWindowTitle(window, titleString);
@@ -108,8 +108,7 @@ int main(int argc, char* argv[]){
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        float xPlane = -player.yDir;
-        float yPlane = player.xDir;
+       
 
         //Rendering the floor and ceiling
         for(Uint16 i = 0; i < SCREEN_HEIGHT; i++){
@@ -242,10 +241,14 @@ int main(int argc, char* argv[]){
 
 
         //Render Sprites
+        //Calculate all sprites in camera space, skip ones behind the player
+        //sort depths into zbuffer
+        //render in reverse order
+
         float xSprite = 0, ySprite = 0;
-        float xSprites[2] = {8.5, 16.5}; 
+        float xSprites[2] = {8.5, 18.5}; 
         float ySprites[2] = {3.5, 5.5};
-        Uint8 typeSprites[2] = {2, 0};
+        Uint8 typeSprites[2] = {1, 0};
         for(Uint32 i = 0; i < 2; i++){
             xSprite = xSprites[i];
             ySprite = ySprites[i];
@@ -259,15 +262,15 @@ int main(int argc, char* argv[]){
        
             //Only render if in front of the player
             if(ySpriteCam <= 0) continue;
-
+           
             //get the screen width and height
-            float spriteSize = (float)SCREEN_HEIGHT / ySpriteCam;
+            float spriteSize = (float)SCREEN_HEIGHT / ySpriteCam; //SCALE SPRITES BY FLOAT
             int xScreenPos = (SCREEN_WIDTH / 2.0) * (1 + xSpriteCam/ySpriteCam); //for a 90deg FOV, the view triangle's slope is 1, compare that to the slope of the triangle formed by the player and object
             
             //render
             int xStart = (int)(xScreenPos - spriteSize/2.0);
             int xEnd = xStart + spriteSize;
-            int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0);
+            int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0) - (0 * SCREEN_HEIGHT/2.0)/ySpriteCam;//MOVE SPRITES UP AND DOWN
             int yEnd = yStart + spriteSize;
             
             float texCol = 0, texColStep = TEX_SIZE / spriteSize;
@@ -303,7 +306,27 @@ int main(int argc, char* argv[]){
                     Uint32 color = *((Uint32*)spriteSurf->pixels + (int)texCol + (TEX_SIZE*typeSprites[i]) + (spriteSurf->w) * (int)texRow);
                     texRow += texRowStep;
                     
-                    if(color >> 24 == 0) continue;
+                    float alpha = (color >> 24) / (float)0xFF;
+                    
+                    if(alpha == 0) continue;
+                    else if(alpha < 1){
+                        //Alpha blending translucent sprites with existing background pixels, must include Zbuf for othe sprites
+                        float rn = 0, gn = 0, bn = 0, r = 0, g = 0, b = 0;
+                        Uint32 oldCol = pixels[x + SCREEN_WIDTH * y];
+                        rn = (color >> 16) & 0x00FF;
+                        gn = (color >> 8) & 0x0000FF;
+                        bn = color & 0x000000FF;
+                        r = (oldCol >> 16) & 0x00FF;
+                        g = (oldCol >> 8) & 0x0000FF;
+                        b = oldCol & 0x000000FF;
+                        
+                        r = alpha*rn + (1 - alpha) * r;
+                        g = alpha*gn + (1 - alpha) * g;
+                        b = alpha*bn + (1 - alpha) * b;
+                        
+                        color = 0xFF000000 | ((Uint8)r << 16) | ((Uint8)g << 8) | (Uint8)b;
+                    }
+                    
                     pixels[x + SCREEN_WIDTH * y] = color;
                     
                 }

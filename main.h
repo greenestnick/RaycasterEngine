@@ -13,8 +13,6 @@
 
 #define UPDATE_TIMER_MS 16 //about 60 ticks per second
 
-#define absv(a) (a<0)?-a:a
-
 typedef struct{
     float xPos;
     float yPos;
@@ -26,6 +24,14 @@ typedef struct{
   Uint32 x;
   int xVel;
 }Mouse;
+
+typedef struct{
+  Uint8 spriteTextureID;
+  float xPos;
+  float yPos;
+  float zPos;
+  float scale;
+}Sprite;
 
 #define MAPSIZE 24
 int map[MAPSIZE * MAPSIZE]=
