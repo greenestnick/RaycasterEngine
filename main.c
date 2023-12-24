@@ -1,6 +1,5 @@
 #include "main.h"
-
-//TODO Add maps for floors and ceilings
+#include <time.h>
 
 int main(int argc, char* argv[]){
 
@@ -43,59 +42,61 @@ int main(int argc, char* argv[]){
     Player player = {2.5, 2.5, 0.707, 0.707};
     Mouse mouse = {0, 0};
     Uint8 keys[6] = {0,0,0,0,0,0};
-
-    while(1){
+    Uint8 running = 1;
+    
+    while(running){
 
         //Event Handling 
-        SDL_PollEvent(&event);
-        if(event.type == SDL_QUIT){
-            printf("QUITTING WINDOW\n");
-            break;
-        }
-        if(event.type == SDL_KEYDOWN){
-            switch(event.key.keysym.sym){
-                case SDLK_w: keys[0] = 1; break;
-                case SDLK_a: keys[1] = 1; break;
-                case SDLK_s: keys[2] = 1; break;
-                case SDLK_d: keys[3] = 1; break;
-                case SDLK_q: keys[4] = 1; break;
-                case SDLK_e: keys[5] = 1; break;
-            }
-        }
-        if(event.type == SDL_KEYUP){
-            switch(event.key.keysym.sym){
-                case SDLK_w: keys[0] = 0; break;
-                case SDLK_a: keys[1] = 0; break;
-                case SDLK_s: keys[2] = 0; break;
-                case SDLK_d: keys[3] = 0; break;
-                case SDLK_q: keys[4] = 0; break;
-                case SDLK_e: keys[5] = 0; break;
-            }
-        }/*else if(event.type == SDL_MOUSEMOTION){
-            int xNew = 0, yNew = 0;
-            SDL_GetMouseState(&xNew, &yNew);
-            mouse.xVel = xNew - mouse.x;
-            mouse.x = xNew;
+        while(SDL_PollEvent(&event)){
+            if(event.type == SDL_QUIT){
+                printf("QUITTING WINDOW\n");
+                running = 0;
+                continue;
+            }else if(event.type == SDL_KEYDOWN){
+                switch(event.key.keysym.sym){
+                    case SDLK_w: keys[0] = 1; break;
+                    case SDLK_a: keys[1] = 1; break;
+                    case SDLK_s: keys[2] = 1; break;
+                    case SDLK_d: keys[3] = 1; break;
+                    case SDLK_q: keys[4] = 1; break;
+                    case SDLK_e: keys[5] = 1; break;
+                }
+            }else if(event.type == SDL_KEYUP){
+                switch(event.key.keysym.sym){
+                    case SDLK_w: keys[0] = 0; break;
+                    case SDLK_a: keys[1] = 0; break;
+                    case SDLK_s: keys[2] = 0; break;
+                    case SDLK_d: keys[3] = 0; break;
+                    case SDLK_q: keys[4] = 0; break;
+                    case SDLK_e: keys[5] = 0; break;
+                }
+            }/*else if(event.type == SDL_MOUSEMOTION){
+                int xNew = 0, yNew = 0;
+                SDL_GetMouseState(&xNew, &yNew);
+                mouse.xVel = xNew - mouse.x;
+                mouse.x = xNew;
 
-            //TODO: only change direction if the mouse is moving almost horizontally
-            //TODO: either recenter mouse after every movement, or allow mouse to move on screen pacman torus style
+                //TODO: only change direction if the mouse is moving almost horizontally
+                //TODO: either recenter mouse after every movement, or allow mouse to move on screen pacman torus style
 
-            float oldDirX = player.xDir;
-            float angVel = 3.14 * mouse.xVel/(SCREEN_WIDTH / 2.0);
-            mouse.xVel = 0;
-            player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
-            player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
+                float oldDirX = player.xDir;
+                float angVel = 3.14 * mouse.xVel/(SCREEN_WIDTH / 2.0);
+                mouse.xVel = 0;
+                player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
+                player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
+            }
+            if(event.window.event == SDL_WINDOWEVENT_ENTER){
+                SDL_GetMouseState(&mouse.x, NULL);
+            }
+            */
         }
-        if(event.window.event == SDL_WINDOWEVENT_ENTER){
-            SDL_GetMouseState(&mouse.x, NULL);
-        }
-        */
+
+
         
         //Update
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
             
-
             player.xPos += player.xDir/15 * (keys[0] - keys[2]);   
             player.yPos += player.yDir/15 * (keys[0] - keys[2]);
             if(!keys[0] && !keys[2]){ //Block movement in both directions at once
@@ -107,6 +108,7 @@ int main(int argc, char* argv[]){
             float angVel = 0.05 * (keys[5] - keys[4]);
             player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
             player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
+            
         }
         
 
@@ -116,7 +118,6 @@ int main(int argc, char* argv[]){
 
         float xPlane = -player.yDir;
         float yPlane = player.xDir;
-
 
         //Rendering the floor and ceiling
         for(Uint16 i = 0; i < SCREEN_HEIGHT; i++){
@@ -142,7 +143,7 @@ int main(int argc, char* argv[]){
 
                 int xTile = (int)xFloor, yTile = (int)yFloor;
                 int ceilingTileID, floorTileId;
-                //we must ignore tiles in negative world space. We also ignore tiles drawn far away or floor tiles on ceiling and vice versa
+                //we must ignore tiles outside the map
                 if(xTile < 0 || yTile < 0 || xTile > MAPSIZE || yTile > MAPSIZE){
                     ceilingTileID = 0;
                     floorTileId = 0;
@@ -150,10 +151,17 @@ int main(int argc, char* argv[]){
                     ceilingTileID = ceilingMap[MAPSIZE * yTile + xTile];
                     floorTileId = floorMap[MAPSIZE * yTile + xTile];
                 }  
+                
+                float fogDist = rowDist / MAPSIZE * 255 * 5;
+                if(fogDist > 255) fogDist = 255;
+                Uint32 fogColor = (Uint8)fogDist << 24;
 
                 Uint32 floorColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * floorTileId) + (textureSurf->w) * (int)texRow);
                 Uint32 ceilingColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * ceilingTileID) + (textureSurf->w) * (int)texRow);
                 //Render the floor
+                floorColor = AlphaBlend(fogColor, floorColor);
+                ceilingColor = AlphaBlend(fogColor, ceilingColor);
+
                 pixels[j + SCREEN_WIDTH * i] = floorColor;
                 //render the ceiling
                 pixels[j + SCREEN_WIDTH * (SCREEN_HEIGHT - i - 1)] = (ceilingColor>>1) & 0x7F7F7F7F;
@@ -247,9 +255,10 @@ int main(int argc, char* argv[]){
             float texRowStep = (TEX_SIZE - 2*texRow) / wallHeight;
             for(; j < drawStart + wallHeight; j++){
                 Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * map[xTile + MAPSIZE * yTile]) + (textureSurf->w) * (int)texRow);
-                if((!steppingInX && yRay > 0) || steppingInX && xRay > 0) color = (color >> 1) & 0x7F7F7F7F;
-                
-                pixels[i + SCREEN_WIDTH * j] = color; //ADD SHADING
+                float fogDist = perpDist / MAPSIZE * 255 * 5;
+                if(fogDist > 255) fogDist = 255;
+                Uint32 fogColor = (Uint8)fogDist << 24;
+                pixels[i + SCREEN_WIDTH * j] = AlphaBlend(fogColor, color); //ADD SHADING
                 texRow += texRowStep;
             }
             
@@ -358,7 +367,8 @@ int main(int argc, char* argv[]){
                 texCol += texStep;
             }
         }
-        
+
+
         SDL_UpdateTexture(screenTexture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
         SDL_RenderPresent(renderer);
