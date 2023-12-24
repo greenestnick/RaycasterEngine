@@ -70,7 +70,7 @@ int main(int argc, char* argv[]){
                     case SDLK_q: keys[4] = 0; break;
                     case SDLK_e: keys[5] = 0; break;
                 }
-            }/*else if(event.type == SDL_MOUSEMOTION){
+            }else if(event.type == SDL_MOUSEMOTION){
                 int xNew = 0, yNew = 0;
                 SDL_GetMouseState(&xNew, &yNew);
                 mouse.xVel = xNew - mouse.x;
@@ -88,27 +88,35 @@ int main(int argc, char* argv[]){
             if(event.window.event == SDL_WINDOWEVENT_ENTER){
                 SDL_GetMouseState(&mouse.x, NULL);
             }
-            */
+            
         }
 
-
-        
         //Update
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
             
-            player.xPos += player.xDir/15 * (keys[0] - keys[2]);   
-            player.yPos += player.yDir/15 * (keys[0] - keys[2]);
-            if(!keys[0] && !keys[2]){ //Block movement in both directions at once
-                player.xPos -= player.yDir/15 * (keys[3] - keys[1]);   
-                player.yPos += player.xDir/15 * (keys[3] - keys[1]);
+            if(keys[0] || keys[2]){
+                float xNew =  player.xPos + player.xDir/5 * (keys[0] - keys[2]);
+                float yNew = player.yPos + player.yDir/5 * (keys[0] - keys[2]);
+                if(map[(Uint16)xNew + MAPSIZE * (Uint16)yNew] == 0){
+                    player.xPos += player.xDir/15 * (keys[0] - keys[2]);   
+                    player.yPos += player.yDir/15 * (keys[0] - keys[2]);
+                }
+            }else{
+                float xNew = player.xPos - player.yDir/5 * (keys[3] - keys[1]);   
+                float yNew = player.yPos + player.xDir/5 * (keys[3] - keys[1]);
+                if(map[(Uint16)xNew + MAPSIZE * (Uint16)yNew] == 0){
+                    player.xPos -= player.yDir/15 * (keys[3] - keys[1]);   
+                    player.yPos += player.xDir/15 * (keys[3] - keys[1]);
+                }
             }
+
+            if(map[(Uint16)player.xPos + MAPSIZE * (Uint16)player.yPos] != 0) printf("Collision %d\n", SDL_GetTicks());
 
             float oldDirX = player.xDir;
             float angVel = 0.05 * (keys[5] - keys[4]);
             player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
             player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
-            
         }
         
 
@@ -152,21 +160,19 @@ int main(int argc, char* argv[]){
                     floorTileId = floorMap[MAPSIZE * yTile + xTile];
                 }  
                 
-                float fogDist = rowDist / MAPSIZE * 255 * 5;
+                float fogDist = rowDist / MAPSIZE * 255 * 2;
                 if(fogDist > 255) fogDist = 255;
                 Uint32 fogColor = (Uint8)fogDist << 24;
 
                 Uint32 floorColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * floorTileId) + (textureSurf->w) * (int)texRow);
                 Uint32 ceilingColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * ceilingTileID) + (textureSurf->w) * (int)texRow);
-                //Render the floor
+
                 floorColor = AlphaBlend(fogColor, floorColor);
                 ceilingColor = AlphaBlend(fogColor, ceilingColor);
 
                 pixels[j + SCREEN_WIDTH * i] = floorColor;
-                //render the ceiling
                 pixels[j + SCREEN_WIDTH * (SCREEN_HEIGHT - i - 1)] = (ceilingColor>>1) & 0x7F7F7F7F;
 
-                
                 xFloor += xFloorStep;
                 yFloor += yFloorStep;   
             }
@@ -202,7 +208,6 @@ int main(int argc, char* argv[]){
             float yExtend = ((yOffset < 0) ? -yOffset : yOffset) * yStep;
 
             float xFinish, yFinish;
-
             Uint8 steppingInX = 0;
             while(1){
                 //Determine step direction
@@ -216,6 +221,7 @@ int main(int argc, char* argv[]){
 
                 //Check Tile
                 if(map[xTile + MAPSIZE * yTile] != 0){
+    
                     float rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
                     float rayNorm = sqrt(xRay * xRay + yRay * yRay);
 
@@ -234,6 +240,7 @@ int main(int argc, char* argv[]){
             float perpDist = player.xDir * xFinish + player.yDir * yFinish;
             zBuffer[i] = perpDist;
             float wallHeight = (float)SCREEN_HEIGHT / perpDist;
+            
             int drawStart = (SCREEN_HEIGHT - wallHeight) / 2;
 
             float texRow = 0; 
@@ -255,7 +262,7 @@ int main(int argc, char* argv[]){
             float texRowStep = (TEX_SIZE - 2*texRow) / wallHeight;
             for(; j < drawStart + wallHeight; j++){
                 Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * map[xTile + MAPSIZE * yTile]) + (textureSurf->w) * (int)texRow);
-                float fogDist = perpDist / MAPSIZE * 255 * 5;
+                float fogDist = perpDist / MAPSIZE * 255 * 2;
                 if(fogDist > 255) fogDist = 255;
                 Uint32 fogColor = (Uint8)fogDist << 24;
                 pixels[i + SCREEN_WIDTH * j] = AlphaBlend(fogColor, color); //ADD SHADING
@@ -358,9 +365,13 @@ int main(int argc, char* argv[]){
                     Uint32 color = *((Uint32*)spriteSurf->pixels + (int)texCol + (TEX_SIZE*sprites[index].spriteTextureID) + (spriteSurf->w) * (int)texRow);
                     texRow += texStep;
                     
+                    float fogDist = ySpriteCam / MAPSIZE * 255 * 2;
+                    if(fogDist > 255) fogDist = 255;
+                    Uint32 fogColor = (Uint8)fogDist << 24;
                     color = AlphaBlend(color, pixels[x + SCREEN_WIDTH * y]);
                     if(!color) continue;
-
+                    
+                    color = AlphaBlend(fogColor, color);
                     pixels[x + SCREEN_WIDTH * y] = color;
                     
                 }
