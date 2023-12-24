@@ -1,6 +1,5 @@
 #include "main.h"
 
-//TODO: Must change screen sizes for window resize events
 //TODO Add maps for floors and ceilings
 
 int main(int argc, char* argv[]){
@@ -39,7 +38,7 @@ int main(int argc, char* argv[]){
     }
 
     SDL_Event event;
-    Uint32 lastTime = SDL_GetTicks();
+    Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
 
     Player player = {2.5, 2.5, 0.707, 0.707};
     Mouse mouse = {0, 0};
@@ -52,7 +51,8 @@ int main(int argc, char* argv[]){
         if(event.type == SDL_QUIT){
             printf("QUITTING WINDOW\n");
             break;
-        }else if(event.type == SDL_KEYDOWN){
+        }
+        if(event.type == SDL_KEYDOWN){
             switch(event.key.keysym.sym){
                 case SDLK_w: keys[0] = 1; break;
                 case SDLK_a: keys[1] = 1; break;
@@ -61,7 +61,8 @@ int main(int argc, char* argv[]){
                 case SDLK_q: keys[4] = 1; break;
                 case SDLK_e: keys[5] = 1; break;
             }
-        }else if(event.type == SDL_KEYUP){
+        }
+        if(event.type == SDL_KEYUP){
             switch(event.key.keysym.sym){
                 case SDLK_w: keys[0] = 0; break;
                 case SDLK_a: keys[1] = 0; break;
@@ -70,7 +71,7 @@ int main(int argc, char* argv[]){
                 case SDLK_q: keys[4] = 0; break;
                 case SDLK_e: keys[5] = 0; break;
             }
-        }else if(event.type == SDL_MOUSEMOTION){
+        }/*else if(event.type == SDL_MOUSEMOTION){
             int xNew = 0, yNew = 0;
             SDL_GetMouseState(&xNew, &yNew);
             mouse.xVel = xNew - mouse.x;
@@ -88,11 +89,12 @@ int main(int argc, char* argv[]){
         if(event.window.event == SDL_WINDOWEVENT_ENTER){
             SDL_GetMouseState(&mouse.x, NULL);
         }
+        */
         
-
         //Update
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
+            
 
             player.xPos += player.xDir/15 * (keys[0] - keys[2]);   
             player.yPos += player.yDir/15 * (keys[0] - keys[2]);
@@ -105,7 +107,6 @@ int main(int argc, char* argv[]){
             float angVel = 0.05 * (keys[5] - keys[4]);
             player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
             player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
-
         }
         
 
@@ -115,6 +116,8 @@ int main(int argc, char* argv[]){
 
         float xPlane = -player.yDir;
         float yPlane = player.xDir;
+
+
         //Rendering the floor and ceiling
         for(Uint16 i = 0; i < SCREEN_HEIGHT; i++){
             const float zPlayer = SCREEN_HEIGHT / 2.0;
@@ -128,29 +131,40 @@ int main(int argc, char* argv[]){
             //First vector starts looking at leftmost side of the camera plane
             float xFloor = player.xPos + rowDist * (player.xDir - xPlane);
             float yFloor = player.yPos + rowDist * (player.yDir - yPlane);
+            
             float xFloorStep = rowDist * 2*xPlane / SCREEN_WIDTH;
             float yFloorStep = rowDist * 2*yPlane / SCREEN_WIDTH;
-
+        
             //Scanline across the screen
-            for(Uint16 j = 0; j < SCREEN_WIDTH; j++){
-                //We could have a floor/ceiling tile map using the truncated xFloor/yFloor to get custom tiles
-                
+            for(Uint16 j = 0; j < SCREEN_WIDTH; j++){  
                 float texCol = (xFloor - (int)xFloor) * TEX_SIZE;
                 float texRow = (yFloor - (int)yFloor) * TEX_SIZE;
 
-                Uint32 floorColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * 7) + (textureSurf->w) * (int)texRow);
-                Uint32 ceilingColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * 6) + (textureSurf->w) * (int)texRow);
+                int xTile = (int)xFloor, yTile = (int)yFloor;
+                int ceilingTileID, floorTileId;
+                //we must ignore tiles in negative world space. We also ignore tiles drawn far away or floor tiles on ceiling and vice versa
+                if(xTile < 0 || yTile < 0 || xTile > MAPSIZE || yTile > MAPSIZE){
+                    ceilingTileID = 0;
+                    floorTileId = 0;
+                }else{
+                    ceilingTileID = ceilingMap[MAPSIZE * yTile + xTile];
+                    floorTileId = floorMap[MAPSIZE * yTile + xTile];
+                }  
+
+                Uint32 floorColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * floorTileId) + (textureSurf->w) * (int)texRow);
+                Uint32 ceilingColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * ceilingTileID) + (textureSurf->w) * (int)texRow);
                 //Render the floor
                 pixels[j + SCREEN_WIDTH * i] = floorColor;
                 //render the ceiling
                 pixels[j + SCREEN_WIDTH * (SCREEN_HEIGHT - i - 1)] = (ceilingColor>>1) & 0x7F7F7F7F;
 
+                
                 xFloor += xFloorStep;
-                yFloor += yFloorStep;    
+                yFloor += yFloorStep;   
             }
         }
 
-
+        
         //Raycast
         float zBuffer[SCREEN_WIDTH];
         for(Uint16 i = 0; i < SCREEN_WIDTH; i++){
@@ -272,6 +286,7 @@ int main(int argc, char* argv[]){
 
             spriteZBuffer[i] = i;
         }
+
         //sort depths into zbuffer -- TEMP BUBBLE SORT
         for(Uint32 i = 0; i < spriteCount; i++){
             for(Uint32 j = 1; j < spriteCount; j++){
@@ -284,7 +299,7 @@ int main(int argc, char* argv[]){
             }
         }
 
-        //render in reverse order
+        //render sprites
         float xSprite = 0, ySprite = 0;
         for(Uint32 i = 0; i < spriteCount; i++){
             Uint8 index = spriteZBuffer[i];
@@ -347,6 +362,7 @@ int main(int argc, char* argv[]){
         SDL_UpdateTexture(screenTexture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
         SDL_RenderPresent(renderer);
+        
     }
 
     //Exit Clean Up
