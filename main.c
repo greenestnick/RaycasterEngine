@@ -128,13 +128,15 @@ int main(int argc, char* argv[]){
 
         //Rendering the floor and ceiling
         for(Uint32 i = 0; i < SCREEN_HEIGHT; i++){
-            const float zPlayer = SCREEN_HEIGHT / 2.0;
-
             //Horizontal distance from player to floor.
             //As if we projected a vector from the player (through the camera plane) to the floor midpoint onto the floor. 
-            int screenPitch = i - SCREEN_HEIGHT / 2.0;
-            float rowDist = zPlayer / screenPitch;
-            if(screenPitch == 0) continue;
+            //const float zPlayer = SCREEN_HEIGHT / 2.0;
+            //int screenPitch = i - SCREEN_HEIGHT / 2.0;
+            //float rowDist = zPlayer / screenPitch;
+            //if(screenPitch == 0) continue;
+            float a = i / (SCREEN_HEIGHT /2.0);
+            if(a == 1) continue;
+            float rowDist = 1 / (a - 1);
 
             //First vector starts looking at leftmost side of the camera plane
             float xFloor = player.xPos + rowDist * (player.xDir - player.xPlane);
