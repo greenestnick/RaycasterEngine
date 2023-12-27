@@ -39,7 +39,7 @@ int main(int argc, char* argv[]){
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
 
-    Player player = {2.5, 2.5, 0.707, 0.707};
+    Player player = {17.5, 1.5, 0.707, 0.707};
     Mouse mouse = {0, 0};
     Uint8 keys[6] = {0,0,0,0,0,0};
     Uint8 running = 1;
@@ -110,8 +110,6 @@ int main(int argc, char* argv[]){
                     player.yPos += player.xDir/15 * (keys[3] - keys[1]);
                 }
             }
-
-            if(map[(Uint16)player.xPos + MAPSIZE * (Uint16)player.yPos] != 0) printf("Collision %d\n", SDL_GetTicks());
 
             float oldDirX = player.xDir;
             float angVel = 0.05 * (keys[5] - keys[4]);
@@ -219,15 +217,87 @@ int main(int argc, char* argv[]){
                 else
                     yTile += (yRay > 0) - (yRay < 0);
 
-                //Check Tile
-                if(map[xTile + MAPSIZE * yTile] != 0){
-    
-                    float rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
-                    float rayNorm = sqrt(xRay * xRay + yRay * yRay);
+                //Check Tile 
+                if(map[xTile + MAPSIZE * yTile] != 0 ){
+                    float rayLength;
+                    float rayNorm;
+
+                    if(doorMap[xTile + MAPSIZE * yTile] != 0){
+                        /*
+                        //Run DDA one more step reseting the offset terms to where the door-wall was hit
+                        rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
+                        rayNorm = sqrt(xRay * xRay + yRay * yRay);
+
+                        float xNewStart = xRay/rayNorm * rayLength + player.xPos;
+                        float yNewStart = yRay/rayNorm * rayLength + player.yPos;
+
+                        xOffset = xTile - xNewStart + (xRay > 0);
+                        yOffset = yTile - yNewStart + (yRay > 0);
+
+                        float xDoorExtend = ((xOffset < 0) ? -xOffset : xOffset) * xStep;
+                        float yDoorExtend = ((yOffset < 0) ? -yOffset : yOffset) * yStep;
+
+                        steppingInX = (xDoorExtend < yDoorExtend);
+                
+                        //Get next tile
+                        if(steppingInX)
+                            xTile += (xRay > 0) - (xRay < 0);
+                        else
+                            yTile += (yRay > 0) - (yRay < 0);
+                        
+                        xExtend += steppingInX * xDoorExtend;
+                        yExtend += !steppingInX * yDoorExtend;
+                        */
+
+                        //Save initial door-wall hit
+                        rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
+                        rayNorm = sqrt(xRay * xRay + yRay * yRay);
+
+                        float xWallHit = xRay/rayNorm * rayLength;
+                        float yWallHit = yRay/rayNorm * rayLength;
+                        int xWallHitPos = xTile, yWallHitPos = yTile;
+
+                        //One more step of DDA
+                        xExtend += steppingInX * xStep;
+                        yExtend += !steppingInX * yStep;
+
+                        steppingInX = (xExtend < yExtend);
+                        
+                        if(steppingInX)
+                            xTile += (xRay > 0) - (xRay < 0);
+                        else
+                            yTile += (yRay > 0) - (yRay < 0);
+
+                        //Calc final point
+                        rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
+                        rayNorm = sqrt(xRay * xRay + yRay * yRay);
+
+                        xFinish = xRay/rayNorm * rayLength;
+                        yFinish = yRay/rayNorm * rayLength;
+
+
+                        float yRayTileDist =  yFinish - yWallHit;
+                        float doorDepth = 0.25;
+                        if(yRayTileDist >= doorDepth){
+                            if(yTile == yWallHitPos) steppingInX = !steppingInX;
+
+                            xTile = xWallHitPos;
+                            yTile = yWallHitPos;
+                            
+                            yFinish = yWallHit + doorDepth;
+                            xFinish = xWallHit + (inv_slope * doorDepth);
+                            
+                            break;
+                        }
+                    }
+
+
+                    rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
+                    rayNorm = sqrt(xRay * xRay + yRay * yRay);
 
                     xFinish = xRay/rayNorm * rayLength;
                     yFinish = yRay/rayNorm * rayLength;
-
+                    
                     break;
                 }
 
@@ -252,9 +322,6 @@ int main(int argc, char* argv[]){
             }
 
             Uint16 j = drawStart;
-            //for(; j < drawStart; j++) pixels[i + SCREEN_WIDTH * j] = 0x330000;
-            
-            //Get textureColumn
             float texCol = (steppingInX) ? (player.yPos + yFinish) : (player.xPos + xFinish);
             texCol -= (int)texCol; //only get the decimal part
             texCol *= TEX_SIZE;
@@ -268,10 +335,6 @@ int main(int argc, char* argv[]){
                 pixels[i + SCREEN_WIDTH * j] = AlphaBlend(fogColor, color); //ADD SHADING
                 texRow += texRowStep;
             }
-            
-            //for(; j < drawStart + wallHeight; j++) pixels[i + SCREEN_WIDTH * j] = 0x0000AA - 0x000011*steppingInX;
-
-            //for(; j < SCREEN_HEIGHT; j++) pixels[i + SCREEN_WIDTH * j] = 0x008800;
         }
 
 
