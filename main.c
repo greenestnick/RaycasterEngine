@@ -1,5 +1,4 @@
 #include "main.h"
-#include <time.h>
 
 int main(int argc, char* argv[]){
 
@@ -39,7 +38,7 @@ int main(int argc, char* argv[]){
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
 
-    Player player = {17.5, 1.5, 0.707, 0.707};
+    Player player = {17.5, 1.5, 0.707, 0.707, -0.707, 0.707};
     Mouse mouse = {0, 0};
     Uint8 keys[6] = {0,0,0,0,0,0};
     Uint8 running = 1;
@@ -117,15 +116,15 @@ int main(int argc, char* argv[]){
             float angVel = 0.05 * (keys[5] - keys[4]);
             player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
             player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
+
+            player.xPlane = -player.yDir;
+            player.yPlane = player.xDir;
         }
         
 
         //Rendering
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
-
-        float xPlane = -player.yDir;
-        float yPlane = player.xDir;
 
         //Rendering the floor and ceiling
         for(Uint32 i = 0; i < SCREEN_HEIGHT; i++){
@@ -138,11 +137,11 @@ int main(int argc, char* argv[]){
             if(screenPitch == 0) continue;
 
             //First vector starts looking at leftmost side of the camera plane
-            float xFloor = player.xPos + rowDist * (player.xDir - xPlane);
-            float yFloor = player.yPos + rowDist * (player.yDir - yPlane);
+            float xFloor = player.xPos + rowDist * (player.xDir - player.xPlane);
+            float yFloor = player.yPos + rowDist * (player.yDir - player.yPlane);
             
-            float xFloorStep = rowDist * 2*xPlane / SCREEN_WIDTH;
-            float yFloorStep = rowDist * 2*yPlane / SCREEN_WIDTH;
+            float xFloorStep = rowDist * 2*player.xPlane / SCREEN_WIDTH;
+            float yFloorStep = rowDist * 2*player.yPlane / SCREEN_WIDTH;
         
             //Scanline across the screen
             for(Uint32 j = 0; j < SCREEN_WIDTH; j++){  
@@ -184,8 +183,8 @@ int main(int argc, char* argv[]){
         for(Uint32 i = 0; i < SCREEN_WIDTH; i++){
             float camPlaneNorm = i / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
 
-            float xRay = player.xDir + xPlane * camPlaneNorm;
-            float yRay = player.yDir + yPlane * camPlaneNorm;
+            float xRay = player.xDir + player.xPlane * camPlaneNorm;
+            float yRay = player.yDir + player.yPlane * camPlaneNorm;
 
             //==================================================================DDA Raycast
             float slope = yRay / xRay;
@@ -354,9 +353,9 @@ int main(int argc, char* argv[]){
 
             float xDiff = xSprite - player.xPos, yDiff = ySprite - player.yPos;
             //Transform sprite world coords into camera coords (direction and plane as basis vecs)
-            float denom = xPlane * player.yDir - yPlane * player.xDir;
+            float denom = player.xPlane * player.yDir - player.yPlane * player.xDir;
             float xSpriteCam = (player.yDir * xDiff - player.xDir * yDiff) / denom;
-            float ySpriteCam = (-yPlane * xDiff + xPlane * yDiff) / denom;
+            float ySpriteCam = (-player.yPlane * xDiff + player.xPlane * yDiff) / denom;
 
 
             sprites[i].xCamPos = xSpriteCam;

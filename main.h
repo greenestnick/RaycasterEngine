@@ -7,7 +7,6 @@
 #define SCREEN_WIDTH 711
 #define SCREEN_HEIGHT 400
 
-
 #define WIN_TITLE "Window Title Undefined"
 
 #define MAX_SLOPE 10000000000
@@ -20,6 +19,8 @@ typedef struct{
     float yPos;
     float xDir;
     float yDir;
+    float xPlane;
+    float yPlane;
 }Player;
 
 typedef struct{
@@ -36,31 +37,6 @@ typedef struct{
   float xCamPos;
   float yCamPos;
 }Sprite;
-
-
-typedef struct{
-  float x;
-  float y;
-}fvec2;
-
-typedef struct{
-  int x;
-  int y;
-}ivec2;
-
-#define vec2_add(a, b, c)\
-          c.x = a.x + b.x;\
-          c.y = a.y + b.y;
-
-#define vec2_scale(a, b, c)\
-        c.x = a.x * b;\
-        c.y = a.y * b;
-
-#define vec2_dot(a, b, c)\
-        c = a.x*b.x + a.y*b.y; 
-
-#define vec2_print(a)\
-        printf("(%f, %f)\n", (float)a.x, (float)a.y);
 
 
 Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
