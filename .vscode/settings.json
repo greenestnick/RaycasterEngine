@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "sdl.h": "c",
-        "main.h": "c"
+        "main.h": "c",
+        "stdint.h": "c",
+        "stdint-gcc.h": "c"
     },
 }

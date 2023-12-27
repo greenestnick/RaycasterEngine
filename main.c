@@ -44,6 +44,7 @@ int main(int argc, char* argv[]){
     Uint8 keys[6] = {0,0,0,0,0,0};
     Uint8 running = 1;
     Uint8 timer = 0;
+
     while(running){
 
         //Event Handling 
@@ -94,19 +95,19 @@ int main(int argc, char* argv[]){
         //Update
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
-            timer+=8;
+            timer++;
             
             if(keys[0] || keys[2]){
                 float xNew =  player.xPos + player.xDir/5 * (keys[0] - keys[2]);
                 float yNew = player.yPos + player.yDir/5 * (keys[0] - keys[2]);
-                if(map[(Uint16)xNew + MAPSIZE * (Uint16)yNew] == 0){
+                if(map[(Uint32)xNew + MAPSIZE * (Uint32)yNew] == 0){
                     player.xPos += player.xDir/15 * (keys[0] - keys[2]);   
                     player.yPos += player.yDir/15 * (keys[0] - keys[2]);
                 }
             }else{
                 float xNew = player.xPos - player.yDir/5 * (keys[3] - keys[1]);   
                 float yNew = player.yPos + player.xDir/5 * (keys[3] - keys[1]);
-                if(map[(Uint16)xNew + MAPSIZE * (Uint16)yNew] == 0){
+                if(map[(Uint32)xNew + MAPSIZE * (Uint32)yNew] == 0){
                     player.xPos -= player.yDir/15 * (keys[3] - keys[1]);   
                     player.yPos += player.xDir/15 * (keys[3] - keys[1]);
                 }
@@ -127,7 +128,7 @@ int main(int argc, char* argv[]){
         float yPlane = player.xDir;
 
         //Rendering the floor and ceiling
-        for(Uint16 i = 0; i < SCREEN_HEIGHT; i++){
+        for(Uint32 i = 0; i < SCREEN_HEIGHT; i++){
             const float zPlayer = SCREEN_HEIGHT / 2.0;
 
             //Horizontal distance from player to floor.
@@ -144,7 +145,7 @@ int main(int argc, char* argv[]){
             float yFloorStep = rowDist * 2*yPlane / SCREEN_WIDTH;
         
             //Scanline across the screen
-            for(Uint16 j = 0; j < SCREEN_WIDTH; j++){  
+            for(Uint32 j = 0; j < SCREEN_WIDTH; j++){  
                 float texCol = (xFloor - (int)xFloor) * TEX_SIZE;
                 float texRow = (yFloor - (int)yFloor) * TEX_SIZE;
 
@@ -180,7 +181,7 @@ int main(int argc, char* argv[]){
         
         //Raycast
         float zBuffer[SCREEN_WIDTH];
-        for(Uint16 i = 0; i < SCREEN_WIDTH; i++){
+        for(Uint32 i = 0; i < SCREEN_WIDTH; i++){
             float camPlaneNorm = i / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
 
             float xRay = player.xDir + xPlane * camPlaneNorm;
@@ -231,8 +232,8 @@ int main(int argc, char* argv[]){
 
                         float xWallHit = xRay/rayNorm * rayLength;
                         float yWallHit = yRay/rayNorm * rayLength;
-                        Uint16 xWallHitPos = xTile;
-                        Uint16 yWallHitPos = yTile;
+                        Uint32 xWallHitPos = xTile;
+                        Uint32 yWallHitPos = yTile;
 
                         //One more step of DDA
                         xExtend += steppingInX * xStep;
@@ -255,7 +256,7 @@ int main(int argc, char* argv[]){
                         if(doorDir){
                             short rayAdjust = (yRay >= 0) ? 1 : -1;
                             float yRayTileDist = (yFinish - yWallHit) * rayAdjust;
-                            float doorDepth = 0.5;//(yRay >= 0) ? 0.25 : 0.75;
+                            float doorDepth = timer/255.0;//(yRay >= 0) ? 0.25 : 0.75;
                             if(yRayTileDist >= doorDepth){
                                 if(yTile == yWallHitPos) steppingInX = !steppingInX;
 
@@ -264,8 +265,8 @@ int main(int argc, char* argv[]){
                                 
                                 yFinish = yWallHit + doorDepth*rayAdjust;
                                 xFinish = xWallHit + (inv_slope * doorDepth)*rayAdjust;
-                                float xCheck = xFinish + player.xPos;
-                                if(xCheck - (int)xCheck < 0.5) continue; //Arbitrary door widths 
+                                //float xCheck = xFinish + player.xPos;
+                                //if(xCheck - (int)xCheck < 0.5) continue; //Arbitrary door widths 
                                 break;
                             }
                         }else{
@@ -337,7 +338,7 @@ int main(int argc, char* argv[]){
 
 
         //Render Sprites
-        const Uint16 spriteCount = 4;
+        const Uint32 spriteCount = 4;
         Sprite sprites[] = {
             {1, 7.5, 3.5, 0, 1},
             {1, 8.5, 3.5, -(1-0.45), 0.45},
@@ -415,14 +416,14 @@ int main(int argc, char* argv[]){
             
 
             //render
-            for(Uint16 x = (Uint16)xStart; x < xEnd; x++){
+            for(int x = xStart; x < xEnd; x++){
                 if(zBuffer[x] < ySpriteCam){
                     texCol += texStep;
                     continue;
                 }
 
                 float texRow = texRowStart;
-                for(Uint16 y = (Uint16)yStart; y < yEnd; y++){
+                for(int y = yStart; y < yEnd; y++){
                     Uint32 color = *((Uint32*)spriteSurf->pixels + (int)texCol + (TEX_SIZE*sprites[index].spriteTextureID) + (spriteSurf->w) * (int)texRow);
                     texRow += texStep;
                     
