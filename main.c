@@ -43,7 +43,7 @@ int main(int argc, char* argv[]){
     Mouse mouse = {0, 0};
     Uint8 keys[6] = {0,0,0,0,0,0};
     Uint8 running = 1;
-    
+    Uint8 timer = 0;
     while(running){
 
         //Event Handling 
@@ -94,6 +94,7 @@ int main(int argc, char* argv[]){
         //Update
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
+            timer+=8;
             
             if(keys[0] || keys[2]){
                 float xNew =  player.xPos + player.xDir/5 * (keys[0] - keys[2]);
@@ -223,39 +224,15 @@ int main(int argc, char* argv[]){
                     float rayNorm;
 
                     if(doorMap[xTile + MAPSIZE * yTile] != 0){
-                        /*
-                        //Run DDA one more step reseting the offset terms to where the door-wall was hit
-                        rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
-                        rayNorm = sqrt(xRay * xRay + yRay * yRay);
-
-                        float xNewStart = xRay/rayNorm * rayLength + player.xPos;
-                        float yNewStart = yRay/rayNorm * rayLength + player.yPos;
-
-                        xOffset = xTile - xNewStart + (xRay > 0);
-                        yOffset = yTile - yNewStart + (yRay > 0);
-
-                        float xDoorExtend = ((xOffset < 0) ? -xOffset : xOffset) * xStep;
-                        float yDoorExtend = ((yOffset < 0) ? -yOffset : yOffset) * yStep;
-
-                        steppingInX = (xDoorExtend < yDoorExtend);
-                
-                        //Get next tile
-                        if(steppingInX)
-                            xTile += (xRay > 0) - (xRay < 0);
-                        else
-                            yTile += (yRay > 0) - (yRay < 0);
-                        
-                        xExtend += steppingInX * xDoorExtend;
-                        yExtend += !steppingInX * yDoorExtend;
-                        */
-
+                        Uint8 doorDir = doorMap[xTile + MAPSIZE * yTile] == 1;
                         //Save initial door-wall hit
                         rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
                         rayNorm = sqrt(xRay * xRay + yRay * yRay);
 
                         float xWallHit = xRay/rayNorm * rayLength;
                         float yWallHit = yRay/rayNorm * rayLength;
-                        int xWallHitPos = xTile, yWallHitPos = yTile;
+                        Uint16 xWallHitPos = xTile;
+                        Uint16 yWallHitPos = yTile;
 
                         //One more step of DDA
                         xExtend += steppingInX * xStep;
@@ -275,20 +252,41 @@ int main(int argc, char* argv[]){
                         xFinish = xRay/rayNorm * rayLength;
                         yFinish = yRay/rayNorm * rayLength;
 
+                        if(doorDir){
+                            short rayAdjust = (yRay >= 0) ? 1 : -1;
+                            float yRayTileDist = (yFinish - yWallHit) * rayAdjust;
+                            float doorDepth = 0.5;//(yRay >= 0) ? 0.25 : 0.75;
+                            if(yRayTileDist >= doorDepth){
+                                if(yTile == yWallHitPos) steppingInX = !steppingInX;
 
-                        float yRayTileDist =  yFinish - yWallHit;
-                        float doorDepth = 0.25;
-                        if(yRayTileDist >= doorDepth){
-                            if(yTile == yWallHitPos) steppingInX = !steppingInX;
+                                xTile = xWallHitPos;
+                                yTile = yWallHitPos;
+                                
+                                yFinish = yWallHit + doorDepth*rayAdjust;
+                                xFinish = xWallHit + (inv_slope * doorDepth)*rayAdjust;
+                                float xCheck = xFinish + player.xPos;
+                                if(xCheck - (int)xCheck < 0.5) continue; //Arbitrary door widths 
+                                break;
+                            }
+                        }else{
+                            short rayAdjust = (xRay >= 0) ? 1 : -1;
+                            float xRayTileDist = (xFinish - xWallHit) * rayAdjust;
+                            float doorDepth = 0.5;//(yRay >= 0) ? 0.25 : 0.75;
+                            if(xRayTileDist >= doorDepth){
+                                if(xTile == xWallHitPos) steppingInX = !steppingInX;
 
-                            xTile = xWallHitPos;
-                            yTile = yWallHitPos;
-                            
-                            yFinish = yWallHit + doorDepth;
-                            xFinish = xWallHit + (inv_slope * doorDepth);
-                            
-                            break;
+                                xTile = xWallHitPos;
+                                yTile = yWallHitPos;
+                                
+                                yFinish = yWallHit + (slope * doorDepth) * rayAdjust;
+                                xFinish = xWallHit + doorDepth * rayAdjust;
+                                float yCheck = yFinish + player.yPos;
+                                if(yCheck - (int)yCheck < 0.5) continue; //Arbitrary door widths 
+                                break;
+                            }
                         }
+
+                       break;
                     }
 
 
