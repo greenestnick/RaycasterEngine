@@ -1,4 +1,163 @@
 #include "main.h"
+#include "stack.h"
+
+SDL_Surface* textureSurf;
+Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
+float zBuffer[SCREEN_WIDTH];
+
+//TODO: We need to pass some door struct with more information on direction, depth, width, ect
+Uint8 RayDoorIntersect(const RayHit* wallHit, RayHit* nextHit, const Player* const player, const float slope, const float inv_slope){ 
+    float doorDepth = 0.25; //TODO: Define the door depth
+    float doorWidth = 0.5; //TODO: Define the door width
+    Uint8 doorDir = 2 - doorMap[wallHit->xTile + MAPSIZE * wallHit->yTile];
+    int8_t doorStart = 1; //TODO: Define the door width starting side
+
+    doorDepth = (doorDir) ? ((nextHit->yRay > 0) ? doorDepth : 1 - doorDepth) : ((nextHit->xRay > 0) ? doorDepth : 1 - doorDepth);
+
+    float nextDepth = (doorDir) ? nextHit->yRayLength : nextHit->xRayLength;
+    float wallStart = (doorDir) ? wallHit->yRayLength : wallHit->xRayLength;
+    int8_t rayDir = (doorDir) ? ((nextHit->yRay > 0) ? 1 : -1) : ((nextHit->xRay > 0) ? 1 : -1);
+    float rayDepthIntoWall = (nextDepth - wallStart) * rayDir;
+
+    //if we only hit the adjecent wall sides
+    if(rayDepthIntoWall < doorDepth) return 0;  
+    
+    //Handling the door portion
+    if(doorDir){
+        if(wallHit->yTile == nextHit->yTile) nextHit->steppingInX = !nextHit->steppingInX;
+    }else{
+        if(wallHit->xTile == nextHit->xTile) nextHit->steppingInX = !nextHit->steppingInX;
+    }
+    nextHit->xTile = wallHit->xTile;
+    nextHit->yTile = wallHit->yTile;
+
+    //Adjust ray to hit door
+    float xAdjust = doorDepth * rayDir; 
+    float yAdjust = doorDepth * rayDir;
+    
+    if(doorDir) xAdjust *= inv_slope;
+    else yAdjust *= slope;
+    
+    nextHit->xRayLength = wallHit->xRayLength + xAdjust;
+    nextHit->yRayLength = wallHit->yRayLength + yAdjust;
+    
+    //Door Width Checking
+    float widthCheck = (doorDir) ? (nextHit->xRayLength + player->xPos) : (nextHit->yRayLength + player->yPos);
+    widthCheck -= (int)widthCheck;
+    if(doorStart) widthCheck = 1 - widthCheck;
+    widthCheck -= doorWidth;
+    if(widthCheck >= 0) return 1;
+   
+    return 0;
+}
+
+void CastRay(RayHit* rayhit, Player* player, const Uint32 screenCol){
+    float camPlaneNorm = screenCol / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
+
+    float xRay = player->xDir + player->xPlane * camPlaneNorm;
+    float yRay = player->yDir + player->yPlane * camPlaneNorm;
+
+    float slope = (xRay == 0) ? MAX_SLOPE : yRay / xRay;
+    float inv_slope = (yRay == 0) ? MAX_SLOPE : xRay / yRay;
+
+    float xStep = sqrt(1 + slope * slope); 
+    float yStep = sqrt(1 + inv_slope * inv_slope);
+
+    Uint32 xTile = (Uint32)player->xPos; 
+    Uint32 yTile = (Uint32)player->yPos;
+
+    float xOffset = xTile - player->xPos + (xRay > 0);
+    float yOffset = yTile - player->yPos + (yRay > 0);
+    
+    float xExtend = ((xOffset < 0) ? -xOffset : xOffset) * xStep;
+    float yExtend = ((yOffset < 0) ? -yOffset : yOffset) * yStep;
+
+    Uint8 steppingInX = 0;
+    
+    //TODO: Would I rather use the boolean flag method to achieve one more DDA step, or just write a single step inside the door section
+    Uint8 doorFlag = 0;
+    RayHit lastHit;
+    
+    while(1){
+        steppingInX = (xExtend < yExtend);
+
+        if(steppingInX) xTile += (xRay > 0) ? 1 : -1;
+        else            yTile += (yRay > 0) ? 1 : -1;
+
+        if(map[xTile + MAPSIZE * yTile] || doorFlag){
+            float rayLength = (steppingInX) ? xExtend : yExtend;
+            float rayNorm = sqrt(xRay * xRay + yRay * yRay);
+
+            float xFinish = xRay/rayNorm * rayLength;
+            float yFinish = yRay/rayNorm * rayLength;
+
+            *rayhit = (RayHit){xRay, yRay, xFinish, yFinish, xTile, yTile, steppingInX};
+            
+            if(doorMap[xTile + MAPSIZE * yTile] || doorFlag){
+                if(!doorFlag){
+                    doorFlag = 1;
+                    lastHit = *rayhit;
+
+                    if(steppingInX) xExtend += xStep;
+                    else            yExtend += yStep;
+
+                    continue;
+                }
+                doorFlag = 0;
+                
+                Uint8 doorContinue = RayDoorIntersect(&lastHit, rayhit, player, slope, inv_slope);
+                if(doorContinue){
+                    xTile = lastHit.xTile;
+                    yTile = lastHit.yTile;
+                    continue;
+                }
+                return;
+
+                //TODO: if(door is transparent) PUSH rayhit, continue;
+            }
+
+            return;
+        }
+
+        if(steppingInX) xExtend += xStep;
+        else            yExtend += yStep;
+    }
+}
+
+void RenderWall(RayHit* rayhit, Player* player, Uint32 screenCol){
+    float perpDist = player->xDir * rayhit->xRayLength + player->yDir * rayhit->yRayLength;
+    zBuffer[screenCol] = perpDist;
+    float wallHeight = (float)SCREEN_HEIGHT / perpDist;
+                
+    int drawStart = (SCREEN_HEIGHT - wallHeight) / 2;
+    
+    float texRow = 0; 
+    //If the wall is larger than the screen, we clamp the height and start the texture sampling further down and end further up
+    if(wallHeight >= SCREEN_HEIGHT){
+        texRow = (1 - SCREEN_HEIGHT/wallHeight) * 0.5 * TEX_SIZE;
+        wallHeight = SCREEN_HEIGHT;
+        drawStart = 0;
+    }
+
+    Uint16 j = drawStart;
+    float texCol = (rayhit->steppingInX) ? (player->yPos + rayhit->yRayLength) : (player->xPos + rayhit->xRayLength);
+    texCol -= (int)texCol; //only get the decimal part
+    texCol *= TEX_SIZE;
+
+    float texRowStep = (TEX_SIZE - 2*texRow) / wallHeight;
+    for(; j < drawStart + wallHeight; j++){
+        Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * map[rayhit->xTile + MAPSIZE * rayhit->yTile]) + (textureSurf->w) * (int)texRow);
+        
+        //TODO: Better way to organize/implement the fog? We can also cull anything far enough away where the fog the only color
+        float fogDist = perpDist / MAPSIZE * 255 * 2;
+        if(fogDist > 255) fogDist = 255;
+        Uint32 fogColor = (Uint8)fogDist << 24;
+        color = AlphaBlend(fogColor, color);
+
+        pixels[screenCol + SCREEN_WIDTH * j] = color; //TODO: Add directional shading
+        texRow += texRowStep;
+    }
+}
 
 int main(int argc, char* argv[]){
 
@@ -23,9 +182,8 @@ int main(int argc, char* argv[]){
         printf("error creating texture\n");
         return 1;
     }
-    Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 
-    SDL_Surface* textureSurf = IMG_Load("./wolftextures.png");
+    textureSurf = IMG_Load("./wolftextures.png");
     if(textureSurf->format->format != SDL_PIXELFORMAT_ARGB8888){
         textureSurf = SDL_ConvertSurfaceFormat(textureSurf, SDL_PIXELFORMAT_ARGB8888, 0);
     }
@@ -40,10 +198,18 @@ int main(int argc, char* argv[]){
 
     Player player = {17.5, 1.5, 0.707, 0.707, -0.707, 0.707};
     Mouse mouse = {0, 0};
+    
+    const Uint32 spriteCount = 4;
+    Sprite sprites[] = {
+        {1, 7.5, 3.5, 0, 1},
+        {1, 8.5, 3.5, -(1-0.45), 0.45},
+        {3, 9.5, 3.5, 0, 1},
+        {0, 16.5, 5.5, 0, 1}
+    };
+
     Uint8 keys[6] = {0,0,0,0,0,0};
     Uint8 running = 1;
     Uint8 timer = 0;
-
     while(running){
 
         //Event Handling 
@@ -128,12 +294,14 @@ int main(int argc, char* argv[]){
 
         //Rendering the floor and ceiling
         for(Uint32 i = 0; i < SCREEN_HEIGHT; i++){
-            //Horizontal distance from player to floor.
-            //As if we projected a vector from the player (through the camera plane) to the floor midpoint onto the floor. 
-            //const float zPlayer = SCREEN_HEIGHT / 2.0;
-            //int screenPitch = i - SCREEN_HEIGHT / 2.0;
-            //float rowDist = zPlayer / screenPitch;
-            //if(screenPitch == 0) continue;
+            //We need to get the horizontal distance from player to floor.
+            //Calculated as if we projected a vector from the player (through the camera plane) to the floor midpoint onto the floor.
+            //The vector from player through the screen forms a similar triangle formed by the vector from the player to the floor spot
+            //Unsimplified math below
+            //  const float zPlayer = SCREEN_HEIGHT / 2.0;
+            //  int screenPitch = i - SCREEN_HEIGHT / 2.0;
+            //  float rowDist = zPlayer / screenPitch;
+            
             float a = i / (SCREEN_HEIGHT /2.0);
             if(a == 1) continue;
             float rowDist = 1 / (a - 1);
@@ -150,8 +318,11 @@ int main(int argc, char* argv[]){
                 float texCol = (xFloor - (int)xFloor) * TEX_SIZE;
                 float texRow = (yFloor - (int)yFloor) * TEX_SIZE;
 
-                int xTile = (int)xFloor, yTile = (int)yFloor;
-                int ceilingTileID, floorTileId;
+                int xTile = (int)xFloor;
+                int yTile = (int)yFloor;
+                int ceilingTileID;
+                int floorTileId;
+
                 //we must ignore tiles outside the map
                 if(xTile < 0 || yTile < 0 || xTile > MAPSIZE || yTile > MAPSIZE){
                     ceilingTileID = 0;
@@ -161,6 +332,7 @@ int main(int argc, char* argv[]){
                     floorTileId = floorMap[MAPSIZE * yTile + xTile];
                 }  
                 
+
                 float fogDist = rowDist / MAPSIZE * 255 * 2;
                 if(fogDist > 255) fogDist = 255;
                 Uint32 fogColor = (Uint8)fogDist << 24;
@@ -181,171 +353,14 @@ int main(int argc, char* argv[]){
 
         
         //Raycast
-        float zBuffer[SCREEN_WIDTH];
-        for(Uint32 i = 0; i < SCREEN_WIDTH; i++){
-            float camPlaneNorm = i / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
-
-            float xRay = player.xDir + player.xPlane * camPlaneNorm;
-            float yRay = player.yDir + player.yPlane * camPlaneNorm;
-
-            //==================================================================DDA Raycast
-            float slope = yRay / xRay;
-            if(xRay == 0) slope = MAX_SLOPE;
-
-            float inv_slope = xRay / yRay;
-            if(yRay == 0) inv_slope = MAX_SLOPE;
-            
-
-            float xStep = sqrt(1 + slope * slope); 
-            float yStep = sqrt(1 + inv_slope * inv_slope);
-
-            Uint32 xTile = (Uint32)player.xPos; 
-            Uint32 yTile = (Uint32)player.yPos;
-
-            float xOffset = xTile - player.xPos + (xRay > 0);
-            float yOffset = yTile - player.yPos + (yRay > 0);
-            
-            float xExtend = ((xOffset < 0) ? -xOffset : xOffset) * xStep;
-            float yExtend = ((yOffset < 0) ? -yOffset : yOffset) * yStep;
-
-            float xFinish, yFinish;
-            Uint8 steppingInX = 0;
-            while(1){
-                //Determine step direction
-                steppingInX = (xExtend < yExtend);
-                
-                //Get next tile
-                if(steppingInX)
-                    xTile += (xRay > 0) - (xRay < 0);
-                else
-                    yTile += (yRay > 0) - (yRay < 0);
-
-                //Check Tile 
-                if(map[xTile + MAPSIZE * yTile] != 0 ){
-                    float rayLength;
-                    float rayNorm;
-
-                    if(doorMap[xTile + MAPSIZE * yTile] != 0){
-                        Uint8 doorDir = doorMap[xTile + MAPSIZE * yTile] == 1;
-                        //Save initial door-wall hit
-                        rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
-                        rayNorm = sqrt(xRay * xRay + yRay * yRay);
-
-                        float xWallHit = xRay/rayNorm * rayLength;
-                        float yWallHit = yRay/rayNorm * rayLength;
-                        Uint32 xWallHitPos = xTile;
-                        Uint32 yWallHitPos = yTile;
-
-                        //One more step of DDA
-                        xExtend += steppingInX * xStep;
-                        yExtend += !steppingInX * yStep;
-
-                        steppingInX = (xExtend < yExtend);
-                        
-                        if(steppingInX)
-                            xTile += (xRay > 0) - (xRay < 0);
-                        else
-                            yTile += (yRay > 0) - (yRay < 0);
-
-                        //Calc final point
-                        rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
-                        rayNorm = sqrt(xRay * xRay + yRay * yRay);
-
-                        xFinish = xRay/rayNorm * rayLength;
-                        yFinish = yRay/rayNorm * rayLength;
-
-                        if(doorDir){
-                            short rayAdjust = (yRay >= 0) ? 1 : -1;
-                            float yRayTileDist = (yFinish - yWallHit) * rayAdjust;
-                            float doorDepth = timer/255.0;//(yRay >= 0) ? 0.25 : 0.75;
-                            if(yRayTileDist >= doorDepth){
-                                if(yTile == yWallHitPos) steppingInX = !steppingInX;
-
-                                xTile = xWallHitPos;
-                                yTile = yWallHitPos;
-                                
-                                yFinish = yWallHit + doorDepth*rayAdjust;
-                                xFinish = xWallHit + (inv_slope * doorDepth)*rayAdjust;
-                                //float xCheck = xFinish + player.xPos;
-                                //if(xCheck - (int)xCheck < 0.5) continue; //Arbitrary door widths 
-                                break;
-                            }
-                        }else{
-                            short rayAdjust = (xRay >= 0) ? 1 : -1;
-                            float xRayTileDist = (xFinish - xWallHit) * rayAdjust;
-                            float doorDepth = 0.5;//(yRay >= 0) ? 0.25 : 0.75;
-                            if(xRayTileDist >= doorDepth){
-                                if(xTile == xWallHitPos) steppingInX = !steppingInX;
-
-                                xTile = xWallHitPos;
-                                yTile = yWallHitPos;
-                                
-                                yFinish = yWallHit + (slope * doorDepth) * rayAdjust;
-                                xFinish = xWallHit + doorDepth * rayAdjust;
-                                float yCheck = yFinish + player.yPos;
-                                if(yCheck - (int)yCheck < 0.5) continue; //Arbitrary door widths 
-                                break;
-                            }
-                        }
-
-                       break;
-                    }
-
-
-                    rayLength = steppingInX * xExtend + !steppingInX *  yExtend;
-                    rayNorm = sqrt(xRay * xRay + yRay * yRay);
-
-                    xFinish = xRay/rayNorm * rayLength;
-                    yFinish = yRay/rayNorm * rayLength;
-                    
-                    break;
-                }
-
-                //Take step
-                xExtend += steppingInX * xStep;
-                yExtend += !steppingInX * yStep;
-            }
-
-            //================================================Rendering Wall
-            float perpDist = player.xDir * xFinish + player.yDir * yFinish;
-            zBuffer[i] = perpDist;
-            float wallHeight = (float)SCREEN_HEIGHT / perpDist;
-            
-            int drawStart = (SCREEN_HEIGHT - wallHeight) / 2;
-
-            float texRow = 0; 
-            //If the wall is larger than the screen, we clamp the height and start the texture sampling further down and end further up
-            if(wallHeight >= SCREEN_HEIGHT){
-                texRow = (1 - SCREEN_HEIGHT/wallHeight) * 0.5 * TEX_SIZE;
-                wallHeight = SCREEN_HEIGHT;
-                drawStart = 0;
-            }
-
-            Uint16 j = drawStart;
-            float texCol = (steppingInX) ? (player.yPos + yFinish) : (player.xPos + xFinish);
-            texCol -= (int)texCol; //only get the decimal part
-            texCol *= TEX_SIZE;
-
-            float texRowStep = (TEX_SIZE - 2*texRow) / wallHeight;
-            for(; j < drawStart + wallHeight; j++){
-                Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * map[xTile + MAPSIZE * yTile]) + (textureSurf->w) * (int)texRow);
-                float fogDist = perpDist / MAPSIZE * 255 * 2;
-                if(fogDist > 255) fogDist = 255;
-                Uint32 fogColor = (Uint8)fogDist << 24;
-                pixels[i + SCREEN_WIDTH * j] = AlphaBlend(fogColor, color); //ADD SHADING
-                texRow += texRowStep;
-            }
+        for(Uint32 col = 0; col < SCREEN_WIDTH; col++){
+            RayHit rayhit = {};
+            CastRay(&rayhit, &player, col);
+            RenderWall(&rayhit, &player, col); 
         }
 
 
         //Render Sprites
-        const Uint32 spriteCount = 4;
-        Sprite sprites[] = {
-            {1, 7.5, 3.5, 0, 1},
-            {1, 8.5, 3.5, -(1-0.45), 0.45},
-            {3, 9.5, 3.5, 0, 1},
-            {0, 16.5, 5.5, 0, 1}
-        };
         Uint8 spriteZBuffer[spriteCount];
 
         //Calculate all sprites in camera space

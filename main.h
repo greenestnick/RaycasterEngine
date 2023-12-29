@@ -15,6 +15,16 @@
 #define UPDATE_TIMER_MS 16 //about 60 ticks per second
 
 typedef struct{
+    float xRay;
+    float yRay;
+    float xRayLength;
+    float yRayLength;
+    Uint32 xTile;
+    Uint32 yTile;
+    Uint8 steppingInX;
+}RayHit;
+
+typedef struct{
     float xPos;
     float yPos;
     float xDir;
@@ -37,6 +47,26 @@ typedef struct{
   float xCamPos;
   float yCamPos;
 }Sprite;
+
+
+/*
+typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE} Texture;
+
+typedef struct{
+  Uint8 isXAligned;
+  float depth; //using map axis for directions
+  float width; //TODO: start rendering from left or right of door center??
+  Uint8 startsWidthLeft;
+  Uint8 isSolid;
+}Door;
+
+typedef enum {WALL_TYPE, DOOR_TYPE} WallType;
+typedef struct{
+  WallType type;
+  Texture texID;
+  Door door;
+}WallPiece;
+*/
 
 
 Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
