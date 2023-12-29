@@ -9,6 +9,7 @@ Easiest:
 Med:
     Some sort of lighting, could be baked in
     Transparent Walls (must know the wall is transparent or the current texture column is)
+    Transparent Door (only challenge is incorportating a zbuffer for sprites with the transparent walls when they operate on two different systems)
 
 Hardest:
     Moveable Walls
