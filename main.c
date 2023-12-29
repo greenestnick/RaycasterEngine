@@ -328,6 +328,7 @@ int main(int argc, char* argv[]){
                 
                 Uint8 transparencyColFlag = 0;
                 float perpDist = player.xDir * rayhit.xRayLength + player.yDir * rayhit.yRayLength;
+                zBuffer[col] = perpDist;
                 float wallHeight = (float)SCREEN_HEIGHT / perpDist;
                             
                 int drawStart = (SCREEN_HEIGHT - wallHeight) / 2;
@@ -454,7 +455,7 @@ int main(int argc, char* argv[]){
                     color = AlphaBlend(color, pixels[x + SCREEN_WIDTH * y]);
                     if(!color) continue;
                     
-                    //color = AlphaBlend(fogColor, color);
+                    color = AlphaBlend(fogColor, color);
                     pixels[x + SCREEN_WIDTH * y] = color;
                     
                 }
