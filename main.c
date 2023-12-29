@@ -1,5 +1,4 @@
 #include "main.h"
-#include "stack.h"
 
 SDL_Surface* textureSurf;
 Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
@@ -7,8 +6,8 @@ float zBuffer[SCREEN_WIDTH];
 
 //TODO: We need to pass some door struct with more information on direction, depth, width, ect
 Uint8 RayDoorIntersect(const RayHit* wallHit, RayHit* nextHit, const Player* const player, const float slope, const float inv_slope){ 
-    float doorDepth = 0.25; //TODO: Define the door depth
-    float doorWidth = 0.5; //TODO: Define the door width
+    float doorDepth = 0.5; //TODO: Define the door depth
+    float doorWidth = 1; //TODO: Define the door width
     Uint8 doorDir = 2 - doorMap[wallHit->xTile + MAPSIZE * wallHit->yTile];
     int8_t doorStart = 1; //TODO: Define the door width starting side
 
@@ -51,7 +50,7 @@ Uint8 RayDoorIntersect(const RayHit* wallHit, RayHit* nextHit, const Player* con
     return 0;
 }
 
-void CastRay(RayHit* rayhit, Player* player, const Uint32 screenCol){
+void CastRay(Stack* stack, RayHit* rayhit, Player* player, const Uint32 screenCol){
     float camPlaneNorm = screenCol / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
 
     float xRay = player->xDir + player->xPlane * camPlaneNorm;
@@ -111,11 +110,20 @@ void CastRay(RayHit* rayhit, Player* player, const Uint32 screenCol){
                     yTile = lastHit.yTile;
                     continue;
                 }
-                return;
+                
+                Uint8 isTransparent = (map[lastHit.xTile + MAPSIZE * lastHit.yTile] == 8); //TODO: Define door transparency flag
+                if(isTransparent){
+                    Push(stack, *rayhit);
+                    xTile = lastHit.xTile;
+                    yTile = lastHit.yTile;
+                    continue;
+                }
 
-                //TODO: if(door is transparent) PUSH rayhit, continue;
+                Push(stack, *rayhit);
+                return;
             }
 
+            Push(stack, *rayhit);
             return;
         }
 
@@ -152,9 +160,12 @@ void RenderWall(RayHit* rayhit, Player* player, Uint32 screenCol){
         float fogDist = perpDist / MAPSIZE * 255 * 2;
         if(fogDist > 255) fogDist = 255;
         Uint32 fogColor = (Uint8)fogDist << 24;
-        color = AlphaBlend(fogColor, color);
 
-        pixels[screenCol + SCREEN_WIDTH * j] = color; //TODO: Add directional shading
+        if(color >> 24 < 255)
+            pixels[screenCol + SCREEN_WIDTH * j] = AlphaBlend(fogColor, AlphaBlend(color, pixels[screenCol + SCREEN_WIDTH * j])); //TODO: Add directional shading
+        else
+             pixels[screenCol + SCREEN_WIDTH * j] = AlphaBlend(fogColor, color);
+
         texRow += texRowStep;
     }
 }
@@ -212,7 +223,7 @@ int main(int argc, char* argv[]){
     Uint8 timer = 0;
     while(running){
 
-        //Event Handling 
+        //===========================================Event Handling=================================================================
         while(SDL_PollEvent(&event)){
             if(event.type == SDL_QUIT){
                 printf("QUITTING WINDOW\n");
@@ -257,11 +268,11 @@ int main(int argc, char* argv[]){
             
         }
 
-        //Update
+        //==========================================Update=====================================================================
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
             timer++;
-            
+
             if(keys[0] || keys[2]){
                 float xNew =  player.xPos + player.xDir/5 * (keys[0] - keys[2]);
                 float yNew = player.yPos + player.yDir/5 * (keys[0] - keys[2]);
@@ -292,7 +303,7 @@ int main(int argc, char* argv[]){
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        //Rendering the floor and ceiling
+        //=========================================Rendering floor/ceiling===================================================
         for(Uint32 i = 0; i < SCREEN_HEIGHT; i++){
             //We need to get the horizontal distance from player to floor.
             //Calculated as if we projected a vector from the player (through the camera plane) to the floor midpoint onto the floor.
@@ -352,15 +363,140 @@ int main(int argc, char* argv[]){
         }
 
         
-        //Raycast
+        //=============================================Wall Rendering========================================================
+        Stack rayStack = StackInit();
         for(Uint32 col = 0; col < SCREEN_WIDTH; col++){
             RayHit rayhit = {};
-            CastRay(&rayhit, &player, col);
-            RenderWall(&rayhit, &player, col); 
+
+            //Casting the ray
+            {
+                float camPlaneNorm = col / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
+
+                float xRay = player.xDir + player.xPlane * camPlaneNorm;
+                float yRay = player.yDir + player.yPlane * camPlaneNorm;
+
+                float slope = (xRay == 0) ? MAX_SLOPE : yRay / xRay;
+                float inv_slope = (yRay == 0) ? MAX_SLOPE : xRay / yRay;
+
+                float xStep = sqrt(1 + slope * slope); 
+                float yStep = sqrt(1 + inv_slope * inv_slope);
+
+                Uint32 xTile = (Uint32)player.xPos; 
+                Uint32 yTile = (Uint32)player.yPos;
+
+                float xOffset = xTile - player.xPos + (xRay > 0);
+                float yOffset = yTile - player.yPos + (yRay > 0);
+
+                float xExtend = ((xOffset < 0) ? -xOffset : xOffset) * xStep;
+                float yExtend = ((yOffset < 0) ? -yOffset : yOffset) * yStep;
+
+                Uint8 steppingInX = 0;
+
+                //TODO: Would I rather use the boolean flag method to achieve one more DDA step, or just write a single step inside the door section
+                Uint8 doorFlag = 0;
+                RayHit lastHit;
+
+                while(1){
+                    steppingInX = (xExtend < yExtend);
+
+                    if(steppingInX) xTile += (xRay > 0) ? 1 : -1;
+                    else            yTile += (yRay > 0) ? 1 : -1;
+
+                    if(map[xTile + MAPSIZE * yTile] || doorFlag){
+                        float rayLength = (steppingInX) ? xExtend : yExtend;
+                        float rayNorm = sqrt(xRay * xRay + yRay * yRay);
+
+                        float xFinish = xRay/rayNorm * rayLength;
+                        float yFinish = yRay/rayNorm * rayLength;
+
+                        rayhit = (RayHit){xRay, yRay, xFinish, yFinish, xTile, yTile, steppingInX};
+                        
+                        if(doorMap[xTile + MAPSIZE * yTile] || doorFlag){
+                            if(!doorFlag){
+                                doorFlag = 1;
+                                lastHit = rayhit;
+
+                                if(steppingInX) xExtend += xStep;
+                                else            yExtend += yStep;
+
+                                continue;
+                            }
+                            doorFlag = 0;
+                            
+                            Uint8 doorContinue = RayDoorIntersect(&lastHit, &rayhit, &player, slope, inv_slope);
+                            if(doorContinue){
+                                xTile = lastHit.xTile;
+                                yTile = lastHit.yTile;
+                                continue;
+                            }
+                            
+                            Uint8 isTransparent = (map[lastHit.xTile + MAPSIZE * lastHit.yTile] == 8); //TODO: Define door transparency flag
+                            if(isTransparent){
+                                Push(&rayStack, rayhit);
+                                xTile = lastHit.xTile;
+                                yTile = lastHit.yTile;
+                                continue;
+                            }
+
+                            Push(&rayStack, rayhit);
+                            break;
+                        }
+
+                        Push(&rayStack, rayhit);
+                        break;
+                    }
+
+                    if(steppingInX) xExtend += xStep;
+                    else            yExtend += yStep;
+                }
+            }
+
+            //Rendering the stack of walls/doors
+            while(!rayStack.isEmpty){
+                rayhit = Pop(&rayStack);
+                if(rayhit.xTile < 0 && rayhit.yTile < 0) continue; //TODO: As of now we return a struct with negative tile position. Is there a better way to represent a "NULL Struct" without a null ptr
+                
+                
+                float perpDist = player.xDir * rayhit.xRayLength + player.yDir * rayhit.yRayLength;
+                zBuffer[col] = perpDist;
+                float wallHeight = (float)SCREEN_HEIGHT / perpDist;
+                            
+                int drawStart = (SCREEN_HEIGHT - wallHeight) / 2;
+                
+                float texRow = 0; 
+                //If the wall is larger than the screen, we clamp the height and start the texture sampling further down and end further up
+                if(wallHeight >= SCREEN_HEIGHT){
+                    texRow = (1 - SCREEN_HEIGHT/wallHeight) * 0.5 * TEX_SIZE;
+                    wallHeight = SCREEN_HEIGHT;
+                    drawStart = 0;
+                }
+
+                Uint16 j = drawStart;
+                float texCol = (rayhit.steppingInX) ? (player.yPos + rayhit.yRayLength) : (player.xPos + rayhit.xRayLength);
+                texCol -= (int)texCol; //only get the decimal part
+                texCol *= TEX_SIZE;
+
+                float texRowStep = (TEX_SIZE - 2*texRow) / wallHeight;
+                for(; j < drawStart + wallHeight; j++){
+                    Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * map[rayhit.xTile + MAPSIZE * rayhit.yTile]) + (textureSurf->w) * (int)texRow);
+                    
+                    //TODO: Better way to organize/implement the fog? We can also cull anything far enough away where the fog the only color
+                    float fogDist = perpDist / MAPSIZE * 255 * 2;
+                    if(fogDist > 255) fogDist = 255;
+                    Uint32 fogColor = (Uint8)fogDist << 24;
+
+                    if(color >> 24 < 255)
+                        pixels[col + SCREEN_WIDTH * j] = AlphaBlend(fogColor, AlphaBlend(color, pixels[col + SCREEN_WIDTH * j])); //TODO: Add directional shading
+                    else
+                        pixels[col + SCREEN_WIDTH * j] = AlphaBlend(fogColor, color);
+
+                    texRow += texRowStep;
+                }
+
+            }
         }
 
-
-        //Render Sprites
+        //==========================================Render Sprites==============================================================
         Uint8 spriteZBuffer[spriteCount];
 
         //Calculate all sprites in camera space

@@ -2,9 +2,18 @@
 #define STACK
 
 #include <stdint.h>
-#include "main.h"
 
 #define MAX_STACK_SIZE 128
+
+typedef struct{
+    float xRay;
+    float yRay;
+    float xRayLength;
+    float yRayLength;
+    Uint32 xTile;
+    Uint32 yTile;
+    Uint8 steppingInX;
+}RayHit;
 
 typedef struct{
     unsigned short stack_top;
@@ -25,7 +34,7 @@ void Push(Stack* stack, RayHit data){
 }
 
 RayHit Pop(Stack* stack){
-    if(stack->isEmpty) return NULL;
+    if(stack->isEmpty) (RayHit){.xTile = 1, .yTile = -1};
 
     if(stack->stack_top) stack->stack_top--;
     else                 stack->isEmpty = 1;
