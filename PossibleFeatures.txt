@@ -1,6 +1,9 @@
 Potential Features:
+=================================
 Easiest:
     "3D" sprites (Based on angle between player and sprite, we select a different sprite)
+    Sprite Animations
+    Wall Texture Animations
     Taller Ceiling Height
 
     Different Wall Textures for each face

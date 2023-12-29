@@ -2,28 +2,62 @@
 #define MAP
 
 #include <stdint.h>
+#include <stdlib.h>
+
 typedef uint8_t Uint8;
 
 typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE} Texture;
+typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR} WallType;
+#define MAPSIZE 24
 
 typedef struct{
     float depth; //using map axis for directions
     float width;
     Uint8 isXAligned;
-    Uint8 startsWidthLeft;
+    Uint8 mapLeftAligned;
     Uint8 isSolid;
 }Door;
 
-typedef enum {WALL_TYPE, DOOR_TYPE} WallType;
 typedef struct{
   WallType type;
   Texture texID;
-  Uint8 isTransparent;
   Door* door;
 }WallPiece;
 
-#define MAPSIZE 24
-int map[MAPSIZE * MAPSIZE]=
+
+#define Map_isWall(Map, x, y) (Map[x + MAPSIZE * y].type == WALL_NULL)
+#define Map_ModifyWall(Map, x, y, wall) (Map[x + MAPSIZE * y] = wall)
+#define MakeDoor(depth, width, isXAligned, mapLeftAligned, isSolid) ((Door){depth, width, isXAligned, mapLeftAligned, isSolid})
+
+#define SetDoorStruct(mapDoor, setDoor) \
+  mapDoor->depth = setDoor.depth;\
+  mapDoor->width = setDoor.width;\
+  mapDoor->isXAligned = setDoor.isXAligned;\
+  mapDoor->mapLeftAligned = setDoor.mapLeftAligned;\
+  mapDoor->isSolid = setDoor.isSolid
+
+
+void Map_Init(WallPiece map[MAPSIZE * MAPSIZE], int userMap[MAPSIZE * MAPSIZE]){
+  for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
+    map[i] = (WallPiece){(userMap[i] > 0), userMap[i], NULL};
+  }
+}
+
+void Map_Destroy(WallPiece map[MAPSIZE * MAPSIZE]){
+  for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
+    if(map[i].door != NULL) free(map[i].door);
+  }
+}
+
+void Map_AddDoor(WallPiece map[MAPSIZE * MAPSIZE], Uint32 x, Uint32 y, Door door){
+  map[x + MAPSIZE * y].type = WALL_DOOR;
+  map[x + MAPSIZE * y].door = (Door*)malloc(sizeof(Door));
+  SetDoorStruct(map[x + MAPSIZE * y].door, door);
+}
+
+
+
+int map[MAPSIZE * MAPSIZE] =
 {
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
@@ -51,7 +85,7 @@ int map[MAPSIZE * MAPSIZE]=
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 };
 
-int ceilingMap[MAPSIZE * MAPSIZE]=
+int ceilingMap[MAPSIZE * MAPSIZE] =
 {
   6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
   6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
@@ -79,7 +113,7 @@ int ceilingMap[MAPSIZE * MAPSIZE]=
   6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6
 };
 
-int floorMap[MAPSIZE * MAPSIZE]=
+int floorMap[MAPSIZE * MAPSIZE] =
 {
   3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
   3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
@@ -105,34 +139,6 @@ int floorMap[MAPSIZE * MAPSIZE]=
   3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
   3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
   3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3
-};
-
-int doorMap[MAPSIZE * MAPSIZE]=
-{
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
 
 #endif

@@ -3,6 +3,8 @@
         "sdl.h": "c",
         "main.h": "c",
         "stdint.h": "c",
-        "stdint-gcc.h": "c"
+        "stdint-gcc.h": "c",
+        "stdio.h": "c",
+        "stdlib.h": "c"
     },
 }
