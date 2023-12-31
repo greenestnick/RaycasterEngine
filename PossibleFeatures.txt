@@ -1,21 +1,21 @@
 Potential Features:
 =================================
 Easiest:
-    "3D" sprites (Based on angle between player and sprite, we select a different sprite)
-    Sprite Animations
-    Wall Texture Animations
     Taller Ceiling Height
+    Looking up/down
 
     Different Wall Textures for each face
-    Vertical Doors
+    "3D" sprites (Based on angle between player and sprite, we select a different sprite)
 
-Med:
+
     Some sort of lighting, could be baked in
+    Proper Animation System
+    
+    Half Floors/Different Level Walls
     Transparent Walls (must know the wall is transparent or the current texture column is)
     Transparent Door (only challenge is incorportating a zbuffer for sprites with the transparent walls when they operate on two different systems)
-
-Hardest:
     Moveable Walls
+        Vertical Doors (sprite zbuffer needed, as well as techniques for breaking up a pixel column)
         Vertical Movement (need a way to draw top/bottom wall face if moving vertically)
         Horiztonal Movement (counts on non-cubic wall and requires intersection checking like the door)
     Mirrors/Portals (Requires extending a raycast out the other end of the portal, then transforming the results back to create an effect array that go behind the wall)

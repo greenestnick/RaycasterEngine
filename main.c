@@ -88,9 +88,10 @@ int main(int argc, char* argv[]){
 
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
-
+    
     Player player = {17.5, 1.5, 0.707, 0.707, -0.707, 0.707};
-    Mouse mouse = {0, 0};
+    float pitch = 0;
+    Mouse mouse = {0, 0, 0, 0};
 
     WallPiece Map[MAPSIZE * MAPSIZE];
     Map_Init(Map, map);
@@ -109,6 +110,8 @@ int main(int argc, char* argv[]){
     Uint8 running = 1;
     Uint8 timer = 0;
     while(running){
+    
+
         //===========================================Event Handling=================================================================
         while(SDL_PollEvent(&event)){
             if(event.type == SDL_QUIT){
@@ -137,7 +140,9 @@ int main(int argc, char* argv[]){
                 int xNew = 0, yNew = 0;
                 SDL_GetMouseState(&xNew, &yNew);
                 mouse.xVel = xNew - mouse.x;
+                mouse.yVel = yNew - mouse.y;
                 mouse.x = xNew;
+                mouse.y = yNew;
 
                 //TODO: only change direction if the mouse is moving almost horizontally
                 //TODO: either recenter mouse after every movement, or allow mouse to move on screen pacman torus style
@@ -157,7 +162,7 @@ int main(int argc, char* argv[]){
         //==========================================Update=====================================================================
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
-            timer++;
+            timer+=1;
             Map[16 + MAPSIZE * 4].door->width = timer/255.0;
             Map[16 + MAPSIZE * 4].texID = (Uint8)(timer/255.0 * 7);
 
@@ -177,6 +182,8 @@ int main(int argc, char* argv[]){
                 }
             }
 
+            pitch = SCREEN_HEIGHT/2.0 - mouse.y;
+
             float oldDirX = player.xDir;
             float angVel = 0.05 * (keys[5] - keys[4]);
             player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
@@ -190,67 +197,57 @@ int main(int argc, char* argv[]){
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        //=========================================Rendering floor/ceiling===================================================  
+        //=========================================Rendering floor/ceiling===================================================
         for(Uint32 i = 0; i < SCREEN_HEIGHT; i++){
+            Uint8 floorRender = (i > (float)(SCREEN_HEIGHT >> 1) + pitch);
+
+            //============Setup
             //We need to get the horizontal distance from player to floor.
             //Calculated as if we projected a vector from the player (through the camera plane) to the floor midpoint onto the floor.
             //The vector from player through the screen forms a similar triangle formed by the vector from the player to the floor spot
-            //Unsimplified math below
-            //  const float zPlayer = SCREEN_HEIGHT / 2.0;
-            //  int screenPitch = i - SCREEN_HEIGHT / 2.0;
-            //  float rowDist = zPlayer / screenPitch;
-            
-            float a = i / (SCREEN_HEIGHT /2.0);
-            if(a == 1) continue;
-            float rowDist = 1 / (a - 1);
+            float playerHeight = (float)(SCREEN_HEIGHT >> 1);
+            float screenPitch = (float)(SCREEN_HEIGHT >> 1) - i + pitch;
+            if(floorRender) screenPitch = -screenPitch;
+            float rowDist = playerHeight / screenPitch;
+            if(screenPitch == 0) continue;
 
-            //First vector starts looking at leftmost side of the camera plane
-            float xFloor = player.xPos + rowDist * (player.xDir - player.xPlane);
-            float yFloor = player.yPos + rowDist * (player.yDir - player.yPlane);
-            
-            float xFloorStep = rowDist * 2*player.xPlane / SCREEN_WIDTH;
-            float yFloorStep = rowDist * 2*player.yPlane / SCREEN_WIDTH;
-        
+            float xHit = player.xPos + rowDist * (player.xDir - player.xPlane);
+            float yHit = player.yPos + rowDist * (player.yDir - player.yPlane);
+            float xStep = (2 * player.xPlane * rowDist) / SCREEN_WIDTH;
+            float yStep = (2 * player.yPlane * rowDist) / SCREEN_WIDTH;
+      
             //Scanline across the screen
-            for(Uint32 j = 0; j < SCREEN_WIDTH; j++){  
-                float texCol = (xFloor - (int)xFloor) * TEX_SIZE;
-                float texRow = (yFloor - (int)yFloor) * TEX_SIZE;
+            for(Uint32 j = 0; j < SCREEN_WIDTH; j++){                 
+                int xTile = (int)xHit;
+                int yTile = (int)yHit;
+                float texCol = (xHit - xTile) * TEX_SIZE;
+                float texRow = (yHit - yTile) * TEX_SIZE;
+                Uint8 tileID = 0;
 
-                int xTile = (int)xFloor;
-                int yTile = (int)yFloor;
-                int ceilingTileID;
-                int floorTileId;
-
-                //we must ignore tiles outside the map
-                if(xTile < 0 || yTile < 0 || xTile >= MAPSIZE || yTile >= MAPSIZE){
-                    ceilingTileID = 0;
-                    floorTileId = 0;
-                }else{
-                    ceilingTileID = ceilingMap[MAPSIZE * yTile + xTile];
-                    floorTileId = floorMap[MAPSIZE * yTile + xTile];
-                }  
-
-                
                 float fogDist = rowDist / MAPSIZE * 255 * 2;
                 if(fogDist > 255) fogDist = 255;
                 Uint32 fogColor = (Uint8)fogDist << 24;
-                
 
-                Uint32 floorColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * floorTileId) + (textureSurf->w) * (int)texRow);
-                Uint32 ceilingColor = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * ceilingTileID) + (textureSurf->w) * (int)texRow);
-                
-                floorColor = AlphaBlend(fogColor, floorColor);
-                ceilingColor = AlphaBlend(fogColor, ceilingColor);
-                
-                pixels[j + SCREEN_WIDTH * i] = floorColor;
-                pixels[j + SCREEN_WIDTH * (SCREEN_HEIGHT - i - 1)] = (ceilingColor>>1) & 0x7F7F7F7F;
+                if(floorRender){
+                    if(xTile < 0 || xTile >= MAPSIZE || yTile < 0 || yTile >= MAPSIZE) tileID = 0;
+                    else tileID = floorMap[xTile + MAPSIZE * yTile];
 
-                xFloor += xFloorStep;
-                yFloor += yFloorStep;   
+                    Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * tileID) + (textureSurf->w) * (int)texRow);
+                    color = AlphaBlend(fogColor, color);
+                    pixels[j + SCREEN_WIDTH * i] = color;
+                }else{
+                    if(xTile < 0 || xTile >= MAPSIZE || yTile < 0 || yTile >= MAPSIZE) tileID = 0;
+                    else tileID = ceilingMap[xTile + MAPSIZE * yTile];
+                    
+                    Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * tileID) + (textureSurf->w) * (int)texRow);
+                    color = AlphaBlend(fogColor, color);
+                    pixels[j + SCREEN_WIDTH * i] = (color>>1) & 0x7F7F7F7F;
+                }
+                xHit += xStep;
+                yHit += yStep;
             }
         }
-        
-        
+             
         //=============================================Wall Rendering======================================================== 
         for(Uint32 col = 0; col < SCREEN_WIDTH; col++){
             RayHit rayhit = {};
@@ -337,22 +334,32 @@ int main(int argc, char* argv[]){
                 zBuffer[col] = perpDist;
                 float wallHeight = (float)SCREEN_HEIGHT / perpDist;
                             
-                int drawStart = (SCREEN_HEIGHT - wallHeight) / 2;
+                int drawStart = (SCREEN_HEIGHT - wallHeight) / 2 + pitch;//TODO: Add player pitch adjustment here
                 
-                float texRow = 0; 
-                //If the wall is larger than the screen, we clamp the height and start the texture sampling further down and end further up
-                if(wallHeight >= SCREEN_HEIGHT){
-                    texRow = (1 - SCREEN_HEIGHT/wallHeight) * 0.5 * TEX_SIZE;
-                    wallHeight = SCREEN_HEIGHT;
+                float texRow = 0;
+                float texRowStep = TEX_SIZE;
+                float wallEnd = drawStart + wallHeight;
+                float wallHeightOld = wallHeight;
+                //Clip Top
+                if(drawStart < 0){
+                    texRow = -drawStart / wallHeight * TEX_SIZE;
+                    texRowStep -= texRow; 
+                    wallHeight += drawStart;
                     drawStart = 0;
                 }
+                //Clip Bottom
+                if(wallEnd >= SCREEN_HEIGHT){
+                    texRowStep -= (wallEnd - SCREEN_HEIGHT) / wallHeightOld * TEX_SIZE;
+                    wallHeight = SCREEN_HEIGHT - drawStart;
+                }
+                texRowStep /= wallHeight;
 
                 Uint16 j = drawStart;
                 float texCol = (rayhit.steppingInX) ? (player.yPos + rayhit.yRayLength) : (player.xPos + rayhit.xRayLength);
                 texCol -= (int)texCol; //only get the decimal part
                 texCol *= TEX_SIZE;
 
-                float texRowStep = (TEX_SIZE - 2*texRow) / wallHeight;
+                
                 for(; j < drawStart + wallHeight; j++){
                     Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * Map[rayhit.xTile + MAPSIZE * rayhit.yTile].texID) + (textureSurf->w) * (int)texRow);
                     //TODO: Better way to organize/implement the fog? We can also cull anything far enough away where the fog the only color
@@ -368,9 +375,8 @@ int main(int argc, char* argv[]){
                     texRow += texRowStep;
                 }
             }
-
+            
         }
-    
 
         //==========================================Render Sprites==============================================================
         
@@ -421,7 +427,7 @@ int main(int argc, char* argv[]){
             //adjust screen and texture bounds
             int xStart = (int)(xScreenPos - spriteSize/2.0);
             int xEnd = xStart + spriteSize;
-            int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0) - (sprites[index].heightAdjust * SCREEN_HEIGHT/2.0)/ySpriteCam;
+            int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0) - (sprites[index].heightAdjust * SCREEN_HEIGHT/2.0)/ySpriteCam + pitch;
             int yEnd = yStart + spriteSize;
 
             float texStep = TEX_SIZE / spriteSize;

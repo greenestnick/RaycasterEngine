@@ -17,6 +17,8 @@
 
 #define UPDATE_TIMER_MS 16 //about 60 ticks per second
 
+//TODO: Define a macro-function to get a color from the textSurf taking in u,v, and texId
+
 typedef struct{
     float xPos;
     float yPos;
@@ -28,7 +30,9 @@ typedef struct{
 
 typedef struct{
   Uint32 x;
+  Uint32 y;
   int xVel;
+  int yVel;
 }Mouse;
 
 typedef struct{
