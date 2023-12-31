@@ -10,7 +10,7 @@ typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD,
 typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR} WallType;
 #define MAPSIZE 24
 
-//TODO: Tensor for storing multiple levels, some sort of level editor
+//TODO: Tensor for storing multiple levels, some sort of level editor. May require multiple raycasts if the levels are different enough
 
 typedef struct{
     float depth; //using map axis for directions
