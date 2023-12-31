@@ -194,13 +194,16 @@ int main(int argc, char* argv[]){
         }
 
         //Rendering
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
+        //Clear Pixels
+        for(Uint32 i = 0; i < SCREEN_HEIGHT * SCREEN_WIDTH; i++){
+            pixels[i] = 0xFF00FFFF;
+        }
+        
 
         //=========================================Rendering floor/ceiling===================================================
         for(Uint32 i = 0; i < SCREEN_HEIGHT; i++){
             Uint8 floorRender = (i > (float)(SCREEN_HEIGHT >> 1) + pitch);
-
+            
             //============Setup
             //We need to get the horizontal distance from player to floor.
             //Calculated as if we projected a vector from the player (through the camera plane) to the floor midpoint onto the floor.
@@ -326,7 +329,7 @@ int main(int argc, char* argv[]){
             }
 
             //Rendering walls/doors
-            {
+            for(int i = 0; i < 1; i++){//TEMP: Go through and draw ever level offseting by wallheight * i
                 if(rayhit.xTile < 0 && rayhit.yTile < 0) continue; //TODO: As of now we return a struct with negative tile position. Is there a better way to represent a "NULL Struct" without a null ptr
                 
                 Uint8 transparencyColFlag = 0;
@@ -334,7 +337,8 @@ int main(int argc, char* argv[]){
                 zBuffer[col] = perpDist;
                 float wallHeight = (float)SCREEN_HEIGHT / perpDist;
                             
-                int drawStart = (SCREEN_HEIGHT - wallHeight) / 2 + pitch;//TODO: Add player pitch adjustment here
+                int drawStart = (SCREEN_HEIGHT - wallHeight) / 2 + pitch;
+                drawStart -= wallHeight * i;
                 
                 float texRow = 0;
                 float texRowStep = TEX_SIZE;
