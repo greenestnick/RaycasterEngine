@@ -9,7 +9,7 @@ Easiest:
     Proper Animation System
     
     Half Floors/Different Level Walls
-    Transparent Walls (must know the wall is transparent or the current texture column is)
+    Render the sides of the transparent walls??
     Moveable Walls
         Vertical Doors (sprite zbuffer needed, as well as techniques for breaking up a pixel column)
         Vertical Movement (need a way to draw top/bottom wall face if moving vertically)

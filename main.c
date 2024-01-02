@@ -376,7 +376,6 @@ int main(int argc, char* argv[]){
 
                         rayhit = (RayHit){xRay, yRay, xFinish, yFinish, xTile, yTile, col, steppingInX};
                         
-                        
                         if(Map[xTile + MAPSIZE * yTile].type == WALL_DOOR || doorFlag){
                             if(!doorFlag){
                                 doorFlag = 1;
@@ -450,6 +449,15 @@ int main(int argc, char* argv[]){
                             break;
                         }
 
+
+                        Uint8 isTransparent = (Map[rayhit.xTile + MAPSIZE * rayhit.yTile].texID == 8); //TODO: Find a way to encode transparency info with texture data
+                        if(isTransparent){
+                            if(steppingInX) xExtend += xStep;
+                            else            yExtend += yStep;
+                            
+                            ListAppend(&renderList, rayhit);
+                            continue;
+                        }
                         break;
                     }
 
@@ -515,7 +523,6 @@ int main(int argc, char* argv[]){
             ListAppend(&renderList, rayhit);
             //RenderWall(&player, &rayhit, Map);
         }
-
 
         //==========================================Sprite Transformations==============================================================
         Uint8 spriteZBuffer[spriteCount];
