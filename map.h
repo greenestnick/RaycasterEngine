@@ -9,8 +9,11 @@ typedef uint8_t Uint8;
 typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE} Texture;
 typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR} WallType;
 #define MAPSIZE 24
+#define MAP_LEVELS 2
+#define MAPSIZE_ARRAY MAPSIZE * MAPSIZE * MAP_LEVELS
 
 //TODO: Tensor for storing multiple levels, some sort of level editor. May require multiple raycasts if the levels are different enough
+//TODO: Make a map structure so the user doesn't have to explicitly create the map array
 
 typedef struct{
     float depth; //using map axis for directions
@@ -39,25 +42,23 @@ typedef struct{
   mapDoor->isSolid = setDoor.isSolid
 
 
-void Map_Init(WallPiece map[MAPSIZE * MAPSIZE], int userMap[MAPSIZE * MAPSIZE]){
+void Map_Init(WallPiece*const map, const int*const userMap){
   for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
     map[i] = (WallPiece){(userMap[i] > 0), userMap[i], NULL};
   }
 }
 
-void Map_Destroy(WallPiece map[MAPSIZE * MAPSIZE]){
+void Map_Destroy(WallPiece*const map){
   for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
     if(map[i].door != NULL) free(map[i].door);
   }
 }
 
-void Map_AddDoor(WallPiece map[MAPSIZE * MAPSIZE], Uint32 x, Uint32 y, Door door){
+void Map_AddDoor(WallPiece*const map, Uint32 x, Uint32 y, Door door){
   map[x + MAPSIZE * y].type = WALL_DOOR;
   map[x + MAPSIZE * y].door = (Door*)malloc(sizeof(Door));
   SetDoorStruct(map[x + MAPSIZE * y].door, door);
 }
-
-
 
 int map[MAPSIZE * MAPSIZE] =
 {

@@ -26,6 +26,7 @@ typedef struct{
     float yDir;
     float xPlane;
     float yPlane;
+    float pitch;
 }Player;
 
 typedef struct{
@@ -50,7 +51,7 @@ Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
   Uint8 alphaInt = (top >> 24);
   
   switch(alphaInt){
-    case 0: return 0;
+    case 0: return bottom;
     case 255: return top;
   }
 

@@ -1,16 +1,17 @@
 #include "main.h"
 
 SDL_Surface* textureSurf;
+SDL_Surface* spriteSurf;
 Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 float zBuffer[SCREEN_WIDTH];
 
 
 //TODO: We need to pass some door struct with more information on direction, depth, width, ect
-Uint8 RayDoorIntersect(const Door* door, const RayHit* wallHit, RayHit* nextHit, const Player* const player, const float slope, const float inv_slope){ 
-    float doorDepth = door->depth; //TODO: Define the door depth
-    float doorWidth = door->width; //TODO: Define the door width
+Uint8 RayDoorIntersect(const Door* const door, const RayHit* const wallHit, RayHit* const nextHit, const Player* const player, float slope, float inv_slope){ 
+    float doorDepth = door->depth; 
+    float doorWidth = door->width; 
     Uint8 doorDir = door->isXAligned;
-    int8_t doorStart = door->mapLeftAligned; //TODO: Define the door width starting side
+    int8_t doorStart = door->mapLeftAligned;
 
     doorDepth = (doorDir) ? ((nextHit->yRay > 0) ? doorDepth : 1 - doorDepth) : ((nextHit->xRay > 0) ? doorDepth : 1 - doorDepth);
 
@@ -51,6 +52,116 @@ Uint8 RayDoorIntersect(const Door* door, const RayHit* wallHit, RayHit* nextHit,
     return 0;
 }
 
+void RenderWall(const Player*const player, const RayHit*const rayhit, const WallPiece*const map){
+    if(rayhit->xTile < 0 && rayhit->yTile < 0) return; //TODO: As of now we return a struct with negative tile position. Is there a better way to represent a "NULL Struct" without a null ptr
+                
+    Uint8 transparencyColFlag = 0;
+    float perpDist = player->xDir * rayhit->xRayLength + player->yDir * rayhit->yRayLength;
+    zBuffer[rayhit->column] = perpDist;
+    float wallHeight = (float)SCREEN_HEIGHT / perpDist;
+                
+    int drawStart = (SCREEN_HEIGHT - wallHeight) / 2 + player->pitch;
+    drawStart -= wallHeight * 0;// * i; TODO: Place higher levels of map here, must pass in
+    
+    float texRow = 0;
+    float texRowStep = TEX_SIZE;
+    float wallEnd = drawStart + wallHeight;
+    float wallHeightOld = wallHeight;
+    //Clip Top
+    if(drawStart < 0){
+        texRow = -drawStart / wallHeight * TEX_SIZE;
+        texRowStep -= texRow; 
+        wallHeight += drawStart;
+        drawStart = 0;
+    }
+    //Clip Bottom
+    if(wallEnd >= SCREEN_HEIGHT){
+        texRowStep -= (wallEnd - SCREEN_HEIGHT) / wallHeightOld * TEX_SIZE;
+        wallHeight = SCREEN_HEIGHT - drawStart;
+    }
+    texRowStep /= wallHeight;
+
+    float texCol = (rayhit->steppingInX) ? (player->yPos + rayhit->yRayLength) : (player->xPos + rayhit->xRayLength);
+    texCol -= (int)texCol; //only get the decimal part
+    texCol *= TEX_SIZE;
+
+    
+    for(Uint16 j = drawStart; j < drawStart + wallHeight; j++){
+        Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * map[rayhit->xTile + MAPSIZE * rayhit->yTile].texID) + (textureSurf->w) * (int)texRow);
+        //TODO: Better way to organize/implement the fog? We can also cull anything far enough away where the fog the only color
+        float fogDist = perpDist / MAPSIZE * 255 * 2;
+        if(fogDist > 255) fogDist = 255;
+        Uint32 fogColor = (Uint8)fogDist << 24;
+
+        if(color >> 24 < 255)
+            pixels[rayhit->column + SCREEN_WIDTH * j] = AlphaBlend(fogColor, AlphaBlend(color, pixels[rayhit->column + SCREEN_WIDTH * j])); //TODO: Add directional shading
+        else
+            pixels[rayhit->column + SCREEN_WIDTH * j] = AlphaBlend(fogColor, color);
+
+        texRow += texRowStep;
+    }  
+}
+
+void RenderSprite(const Sprite*const sprite, float playerPitch){
+    float xSpriteCam = sprite->xCamPos;
+    float ySpriteCam = sprite->yCamPos;
+
+    if(ySpriteCam <= 0) return;   //Only render if in front of the player
+
+    //get the screen width and height
+    float spriteSize = sprite->scale * (float)SCREEN_HEIGHT / ySpriteCam;
+    int xScreenPos = (SCREEN_WIDTH / 2.0) * (1 + xSpriteCam/ySpriteCam); //for a 90deg FOV, the view triangle's slope is 1, compare that to the slope of the triangle formed by the player and object
+
+    //adjust screen and texture bounds
+    int xStart = (int)(xScreenPos - spriteSize/2.0);
+    int xEnd = xStart + spriteSize;
+    int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0) - (sprite->heightAdjust * SCREEN_HEIGHT/2.0)/ySpriteCam + playerPitch;
+    int yEnd = yStart + spriteSize;
+
+    float texStep = TEX_SIZE / spriteSize;
+    float texCol = 0;
+    float texRowStart = 0;
+
+    if(xStart < 0){
+        texCol = -xStart/spriteSize * TEX_SIZE;
+        xStart = 0;
+        xEnd += xStart;
+    }
+    if(xEnd > SCREEN_WIDTH) xEnd = SCREEN_WIDTH;
+
+
+    if(yStart < 0){
+        texRowStart = -yStart / spriteSize * TEX_SIZE;
+        yStart = 0;
+    }
+    if(yEnd > SCREEN_HEIGHT) yEnd = SCREEN_HEIGHT;
+
+
+    //render
+    for(int x = xStart; x < xEnd; x++){
+        if(zBuffer[x] < ySpriteCam){
+            texCol += texStep;
+            continue;
+        }
+
+        float texRow = texRowStart;
+        for(int y = yStart; y < yEnd; y++){
+            Uint32 color = *((Uint32*)spriteSurf->pixels + (int)texCol + (TEX_SIZE*sprite->spriteTextureID) + (spriteSurf->w) * (int)texRow);
+            texRow += texStep;
+
+            float fogDist = ySpriteCam / MAPSIZE * 255 * 2;
+            if(fogDist > 255) fogDist = 255;
+            Uint32 fogColor = (Uint8)fogDist << 24;
+            if(!color) continue;
+            color = AlphaBlend(color, pixels[x + SCREEN_WIDTH * y]);
+            color = AlphaBlend(fogColor, color);
+
+            pixels[x + SCREEN_WIDTH * y] = color;
+            
+        }
+        texCol += texStep;
+    }
+}
 
 int main(int argc, char* argv[]){
 
@@ -81,7 +192,7 @@ int main(int argc, char* argv[]){
         textureSurf = SDL_ConvertSurfaceFormat(textureSurf, SDL_PIXELFORMAT_ARGB8888, 0);
     }
   
-    SDL_Surface* spriteSurf = IMG_Load("./wolfsprites.png");
+    spriteSurf = IMG_Load("./wolfsprites.png");
     if(spriteSurf->format->format != SDL_PIXELFORMAT_ARGB8888){
         spriteSurf = SDL_ConvertSurfaceFormat(spriteSurf, SDL_PIXELFORMAT_ARGB8888, 0);
     }
@@ -89,11 +200,10 @@ int main(int argc, char* argv[]){
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
     
-    Player player = {17.5, 1.5, 0.707, 0.707, -0.707, 0.707};
-    float pitch = 0;
+    Player player = {17.5, 1.5, 0.707, 0.707, -0.707, 0.707, 0};
     Mouse mouse = {0, 0, 0, 0};
 
-    WallPiece Map[MAPSIZE * MAPSIZE];
+    WallPiece Map[MAPSIZE_ARRAY];
     Map_Init(Map, map);
     Map_AddDoor(Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
     Map_AddDoor(Map, 15, 5, MakeDoor(0.5, 0.7, 0, 1, 1));
@@ -109,8 +219,13 @@ int main(int argc, char* argv[]){
     Uint8 keys[6] = {0,0,0,0,0,0};
     Uint8 running = 1;
     Uint8 timer = 0;
-    while(running){
+    RayHit hits[SCREEN_WIDTH];
     
+    Uint32 zBuffLen = SCREEN_WIDTH + spriteCount;
+    Uint64 zBufferAll[zBuffLen];
+    Uint8 zBufferAllType[zBuffLen];
+
+    while(running){
 
         //===========================================Event Handling=================================================================
         while(SDL_PollEvent(&event)){
@@ -152,6 +267,8 @@ int main(int argc, char* argv[]){
                 mouse.xVel = 0;
                 player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
                 player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
+
+                player.pitch = SCREEN_HEIGHT/2.0 - mouse.y;
             }
             if(event.window.event == SDL_WINDOWEVENT_ENTER){
                 SDL_GetMouseState(&mouse.x, NULL);
@@ -182,7 +299,6 @@ int main(int argc, char* argv[]){
                 }
             }
 
-            pitch = SCREEN_HEIGHT/2.0 - mouse.y;
 
             float oldDirX = player.xDir;
             float angVel = 0.05 * (keys[5] - keys[4]);
@@ -202,16 +318,17 @@ int main(int argc, char* argv[]){
 
         //=========================================Rendering floor/ceiling===================================================
         for(Uint32 i = 0; i < SCREEN_HEIGHT; i++){
-            Uint8 floorRender = (i > (float)(SCREEN_HEIGHT >> 1) + pitch);
+            Uint8 floorRender = (i > (float)(SCREEN_HEIGHT >> 1) + player.pitch);
             
             //============Setup
             //We need to get the horizontal distance from player to floor.
             //Calculated as if we projected a vector from the player (through the camera plane) to the floor midpoint onto the floor.
             //The vector from player through the screen forms a similar triangle formed by the vector from the player to the floor spot
             float playerHeight = (float)(SCREEN_HEIGHT >> 1);
-            float screenPitch = (float)(SCREEN_HEIGHT >> 1) - i + pitch;
+            float screenPitch = (float)(SCREEN_HEIGHT >> 1) - i + player.pitch;
             if(floorRender) screenPitch = -screenPitch;
             float rowDist = playerHeight / screenPitch;
+            if(!floorRender) rowDist *= 5;
             if(screenPitch == 0) continue;
 
             float xHit = player.xPos + rowDist * (player.xDir - player.xPlane);
@@ -296,7 +413,7 @@ int main(int argc, char* argv[]){
                         float xFinish = xRay/rayNorm * rayLength;
                         float yFinish = yRay/rayNorm * rayLength;
 
-                        rayhit = (RayHit){xRay, yRay, xFinish, yFinish, xTile, yTile, steppingInX};
+                        rayhit = (RayHit){xRay, yRay, xFinish, yFinish, xTile, yTile, col, steppingInX};
                         
                         if(Map[xTile + MAPSIZE * yTile].type == WALL_DOOR || doorFlag){
                             if(!doorFlag){
@@ -329,7 +446,8 @@ int main(int argc, char* argv[]){
             }
 
             //Rendering walls/doors
-            for(int i = 0; i < 1; i++){//TEMP: Go through and draw ever level offseting by wallheight * i
+            /*
+            for(int i = 0; i < 3; i++){//TEMP: Go through and draw ever level offseting by wallheight * i
                 if(rayhit.xTile < 0 && rayhit.yTile < 0) continue; //TODO: As of now we return a struct with negative tile position. Is there a better way to represent a "NULL Struct" without a null ptr
                 
                 Uint8 transparencyColFlag = 0;
@@ -337,7 +455,7 @@ int main(int argc, char* argv[]){
                 zBuffer[col] = perpDist;
                 float wallHeight = (float)SCREEN_HEIGHT / perpDist;
                             
-                int drawStart = (SCREEN_HEIGHT - wallHeight) / 2 + pitch;
+                int drawStart = (SCREEN_HEIGHT - wallHeight) / 2 + player.pitch;
                 drawStart -= wallHeight * i;
                 
                 float texRow = 0;
@@ -379,7 +497,9 @@ int main(int argc, char* argv[]){
                     texRow += texRowStep;
                 }
             }
-            
+            */
+            hits[col] = rayhit;
+            //RenderWall(&player, &rayhit, Map);
         }
 
         //==========================================Render Sprites==============================================================
@@ -404,6 +524,7 @@ int main(int argc, char* argv[]){
         }
         
         //sort depths into zbuffer -- TEMP BUBBLE SORT
+        /*
         for(Uint32 i = 0; i < spriteCount; i++){
             for(Uint32 j = 1; j < spriteCount; j++){
                 Uint32 k1 = spriteZBuffer[j - 1];
@@ -414,8 +535,9 @@ int main(int argc, char* argv[]){
                 }
             }
         }
-        
+        */
         //render sprites
+        /*
         float xSprite = 0, ySprite = 0;
         for(Uint32 i = 0; i < spriteCount; i++){
             Uint8 index = spriteZBuffer[i];
@@ -431,7 +553,7 @@ int main(int argc, char* argv[]){
             //adjust screen and texture bounds
             int xStart = (int)(xScreenPos - spriteSize/2.0);
             int xEnd = xStart + spriteSize;
-            int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0) - (sprites[index].heightAdjust * SCREEN_HEIGHT/2.0)/ySpriteCam + pitch;
+            int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0) - (sprites[index].heightAdjust * SCREEN_HEIGHT/2.0)/ySpriteCam + player.pitch;
             int yEnd = yStart + spriteSize;
 
             float texStep = TEX_SIZE / spriteSize;
@@ -478,7 +600,59 @@ int main(int argc, char* argv[]){
                 texCol += texStep;
             }
         }
+        */
+
+        Uint32 ii = 0;
+        for(; ii < SCREEN_WIDTH; ii++){
+            zBufferAll[ii] = (Uint64)(hits + ii);
+            zBufferAllType[ii] = 0; 
+        }
+        for(; ii < zBuffLen; ii++){
+            zBufferAll[ii] = (Uint64)(sprites + (ii - SCREEN_WIDTH));
+            zBufferAllType[ii] = 1; 
+        }
         
+        for(Uint32 i = 0; i < zBuffLen; i++){
+            for(Uint32 j = 1; j < zBuffLen; j++){
+                Uint64 k1 = zBufferAll[j - 1];
+                Uint64 k2 = zBufferAll[j];
+                float d1, d2;
+
+                if(zBufferAllType[j - 1]){
+                    d1 = ((Sprite*)k1)->yCamPos;
+                }else{
+                    RayHit* rayhit = (RayHit*)k1;
+                    d1 = player.xDir * rayhit->xRayLength + player.yDir * rayhit->yRayLength;
+                }
+                
+                if(zBufferAllType[j]){
+                    d2 = ((Sprite*)k2)->yCamPos;
+                }else{
+                    RayHit* rayhit = (RayHit*)k2;
+                    d2 = player.xDir * rayhit->xRayLength + player.yDir * rayhit->yRayLength;
+                }
+                
+                if(d1 < d2){;
+                    zBufferAll[j - 1] = zBufferAll[j];
+                    zBufferAll[j] = k1;
+
+                    Uint8 temp = zBufferAllType[j - 1];
+                    zBufferAllType[j - 1] = zBufferAllType[j];
+                    zBufferAllType[j] = temp;
+                }
+            }
+        }
+
+        for(Uint32 i = 0; i < zBuffLen; i++){
+            if(zBufferAllType[i]){
+                Sprite* sprite = (Sprite*)zBufferAll[i];
+                RenderSprite(sprite, player.pitch);
+            }else{
+                RayHit* rayhit = (RayHit*)zBufferAll[i];
+                RenderWall(&player, rayhit, Map);
+            }
+        }
+    
 
         SDL_UpdateTexture(screenTexture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
