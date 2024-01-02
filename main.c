@@ -117,6 +117,13 @@ void RenderSprite(const Sprite*const sprite, float playerPitch){
 }
 
 int main(int argc, char* argv[]){
+    /*
+    Uint32 top = 0xAFFF0000;
+    Uint32 bot = 0xFF0000FF;
+    Uint32 newCol = AlphaBlend(top, bot);
+    printf("%x + %x = %x\n", bot, top, newCol);
+    exit(0);
+    */
 
     if(SDL_Init(SDL_INIT_EVERYTHING) != 0){
         printf("error initializing SDL: %s\n", SDL_GetError());

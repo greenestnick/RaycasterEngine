@@ -49,26 +49,27 @@ typedef struct{
 
 
 Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
-  Uint8 alphaInt = (top >> 24);
+  Uint8 alpha = (top >> 24);
   
-  switch(alphaInt){
+  switch(alpha){
     case 0: return bottom;
     case 255: return top;
   }
 
-  float alpha = alphaInt / 255.0;
-
-  float invAlpha = 1 - alpha;
-  
-  Uint8 rt, gt, bt, rb,bb,gb;
+  Uint8 invAlpha = 255 - (Uint8)alpha;
+  Uint8 rt, gt, bt, rb, bb, gb;
   rb = (Uint8)(bottom >> 16);
   rt = (Uint8)(top >> 16);
   gb = (Uint8)(bottom >> 8);
   gt = (Uint8)(top >> 8);
   bb = (Uint8)bottom;
-  bt = (Uint8)top;   
+  bt = (Uint8)top;
 
-  return 0xFF000000 | (Uint8)(alpha * rt + invAlpha * rb)<<16 | (Uint8)(alpha * gt + invAlpha * gb)<<8 | (Uint8)(alpha * bt + invAlpha * bb);
+  Uint32 nr = (rt*alpha + rb*invAlpha) >> 8; 
+  Uint32 ng = (gt*alpha + gb*invAlpha) >> 8;
+  Uint32 nb = (bt*alpha + bb*invAlpha) >> 8;   
+
+  return 0xFF000000 | (nr << 16) | (ng << 8) | (nb);
 }
 
 #endif
