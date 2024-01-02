@@ -1,10 +1,78 @@
-#include "main.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+
+#include "stack.h"
+#include "map.h"
+#include "RenderList.h"
+
+#define SCREEN_WIDTH 711
+#define SCREEN_HEIGHT 400
+
+#define WIN_TITLE "Window Title Undefined"
+
+#define MAX_SLOPE 10000000000
+#define TEX_SIZE 32
+
+#define UPDATE_TIMER_MS 16 //about 60 ticks per second
+
+//TODO: Define a macro-function to get a color from the textSurf taking in u,v, and texId
+
+typedef struct{
+    float xPos;
+    float yPos;
+    float xDir;
+    float yDir;
+    float xPlane;
+    float yPlane;
+    float pitch;
+}Player;
+
+typedef struct{
+  Uint32 x;
+  Uint32 y;
+  int xVel;
+  int yVel;
+}Mouse;
+
+typedef struct{
+  Uint8 spriteTextureID;
+  float xPos;
+  float yPos;
+  float heightAdjust;
+  float scale;
+  float xCamPos;
+  float yCamPos;
+}Sprite;
+
+
+static Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
+  Uint8 alpha = (top >> 24);
+  
+  switch(alpha){
+    case 0: return bottom;
+    case 255: return top;
+  }
+  
+  Uint8 invAlpha = 255 - (Uint8)alpha;
+  Uint8 rt, gt, bt, rb, bb, gb;
+  rb = (Uint8)(bottom >> 16);
+  rt = (Uint8)(top >> 16);
+  gb = (Uint8)(bottom >> 8);
+  gt = (Uint8)(top >> 8);
+  bb = (Uint8)bottom;
+  bt = (Uint8)top;
+
+  Uint32 nr = (rt*alpha + rb*invAlpha) >> 8; 
+  Uint32 ng = (gt*alpha + gb*invAlpha) >> 8;
+  Uint32 nb = (bt*alpha + bb*invAlpha) >> 8;   
+
+  return 0xFF000000 | (nr << 16) | (ng << 8) | (nb);
+}
 
 SDL_Surface* textureSurf;
 SDL_Surface* spriteSurf;
 Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 float zBuffer[SCREEN_WIDTH];
-
 
 static void RenderWall(const Player*const player, const RayHit*const rayhit, const WallPiece*const map){
     if(rayhit->xTile < 0 && rayhit->yTile < 0) return; //TODO: As of now we return a struct with negative tile position. Is there a better way to represent a "NULL Struct" without a null ptr
@@ -562,6 +630,7 @@ int main(int argc, char* argv[]){
 
         //==========================================Rendering Pass==============================================================
         Uint32 ii = 0;
+        //Load zBuffer
         for(; ii < renderList.size; ii++){
             zBufferAll[ii] = (void*)(renderList.list_array + ii);
             zBufferAllType[ii] = 0; 
@@ -571,7 +640,7 @@ int main(int argc, char* argv[]){
             zBufferAllType[ii] = 1; 
         }
         
-        //Sorting ZBuffer
+        //Sorting ZBuffer (BubbleSort)
         for(Uint32 i = 0; i < zBuffLen; i++){
             for(Uint32 j = 1; j < zBuffLen; j++){
                 void* k1 = zBufferAll[j - 1];
@@ -602,7 +671,8 @@ int main(int argc, char* argv[]){
                 }
             }
         }
-
+        
+        //Render zBuffer
         for(Uint32 i = 0; i < zBuffLen; i++){
             if(zBufferAllType[i]){
                 Sprite* sprite = (Sprite*)zBufferAll[i];

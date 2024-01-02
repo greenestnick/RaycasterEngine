@@ -5,9 +5,10 @@ Easiest:
 
     Some sort of lighting, could be baked in
     Proper Animation System
-    
-    Half Floors/Different Level Walls
     Vertical Doors (sprite zbuffer needed, as well as techniques for breaking up a pixel column) Could just do an animation with transparent textures
+    
+Hardest:
+    Half Floors/Different Level Walls
     Moveable Walls
         Vertical Movement (need a way to draw top/bottom wall face if moving vertically)
         Horiztonal Movement (counts on non-cubic wall and requires intersection checking like the door)
