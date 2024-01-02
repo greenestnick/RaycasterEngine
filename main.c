@@ -632,6 +632,8 @@ int main(int argc, char* argv[]){
             zBufferAllType[ii] = 1; 
         }
         
+        
+
         for(Uint32 i = 0; i < zBuffLen; i++){
             for(Uint32 j = 1; j < zBuffLen; j++){
                 Uint64 k1 = zBufferAll[j - 1];
