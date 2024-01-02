@@ -6,6 +6,7 @@
 
 #include "stack.h"
 #include "map.h"
+#include "RenderList.h"
 
 #define SCREEN_WIDTH 711
 #define SCREEN_HEIGHT 400

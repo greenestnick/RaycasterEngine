@@ -54,7 +54,7 @@ Uint8 RayDoorIntersect(const Door* const door, const RayHit* const wallHit, RayH
 
 void RenderWall(const Player*const player, const RayHit*const rayhit, const WallPiece*const map){
     if(rayhit->xTile < 0 && rayhit->yTile < 0) return; //TODO: As of now we return a struct with negative tile position. Is there a better way to represent a "NULL Struct" without a null ptr
-                
+                        
     Uint8 transparencyColFlag = 0;
     float perpDist = player->xDir * rayhit->xRayLength + player->yDir * rayhit->yRayLength;
     zBuffer[rayhit->column] = perpDist;
@@ -85,7 +85,6 @@ void RenderWall(const Player*const player, const RayHit*const rayhit, const Wall
     texCol -= (int)texCol; //only get the decimal part
     texCol *= TEX_SIZE;
 
-    
     for(Uint16 j = drawStart; j < drawStart + wallHeight; j++){
         Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * map[rayhit->xTile + MAPSIZE * rayhit->yTile].texID) + (textureSurf->w) * (int)texRow);
         //TODO: Better way to organize/implement the fog? We can also cull anything far enough away where the fog the only color
@@ -206,7 +205,7 @@ int main(int argc, char* argv[]){
     WallPiece Map[MAPSIZE_ARRAY];
     Map_Init(Map, map);
     Map_AddDoor(Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
-    Map_AddDoor(Map, 15, 5, MakeDoor(0.5, 0.7, 0, 1, 1));
+    Map_AddDoor(Map, 15, 5, MakeDoor(0.5, 1, 0, 1, 1));
 
     const Uint32 spriteCount = 4;
     Sprite sprites[] = {
@@ -221,11 +220,20 @@ int main(int argc, char* argv[]){
     Uint8 timer = 0;
     RayHit hits[SCREEN_WIDTH];
     
-    Uint32 zBuffLen = SCREEN_WIDTH + spriteCount;
-    Uint64 zBufferAll[zBuffLen];
-    Uint8 zBufferAllType[zBuffLen];
-
+    RenderList renderList = ListInit(SCREEN_WIDTH);
+    Uint32 fps_last = SDL_GetTicks();
+    Uint32 frameCounter = 0;
     while(running){
+        
+        
+        //=============================FPS Counter=================================
+        frameCounter++;
+        if(SDL_GetTicks() - fps_last >= 250){
+            printf("FPS: %f\n", (float)frameCounter/250.0 * 1000.0);
+            frameCounter = 0;
+            fps_last = SDL_GetTicks();
+        }
+        
 
         //===========================================Event Handling=================================================================
         while(SDL_PollEvent(&event)){
@@ -433,6 +441,13 @@ int main(int argc, char* argv[]){
                                 yTile = lastHit.yTile;
                                 continue;
                             }
+
+                            if(Map[lastHit.xTile + MAPSIZE * lastHit.yTile].texID == 8){
+                                ListAppend(&renderList, rayhit);
+                                xTile = lastHit.xTile;
+                                yTile = lastHit.yTile;
+                                continue;
+                            }
                             
                             break;
                         }
@@ -499,12 +514,17 @@ int main(int argc, char* argv[]){
             }
             */
             hits[col] = rayhit;
+            ListAppend(&renderList, rayhit);
             //RenderWall(&player, &rayhit, Map);
         }
 
         //==========================================Render Sprites==============================================================
         
         Uint8 spriteZBuffer[spriteCount];
+        Uint32 zBuffLen = renderList.size + spriteCount; 
+        Uint64 zBufferAll[zBuffLen];
+        Uint8 zBufferAllType[zBuffLen];
+
         //Calculate all sprites in camera space
         for(Uint32 i = 0; i < spriteCount; i++){
             float xSprite = sprites[i].xPos;
@@ -603,12 +623,12 @@ int main(int argc, char* argv[]){
         */
 
         Uint32 ii = 0;
-        for(; ii < SCREEN_WIDTH; ii++){
-            zBufferAll[ii] = (Uint64)(hits + ii);
+        for(; ii < renderList.size; ii++){
+            zBufferAll[ii] = (Uint64)(renderList.list_array + ii);
             zBufferAllType[ii] = 0; 
         }
         for(; ii < zBuffLen; ii++){
-            zBufferAll[ii] = (Uint64)(sprites + (ii - SCREEN_WIDTH));
+            zBufferAll[ii] = (Uint64)(sprites + (ii - renderList.size));
             zBufferAllType[ii] = 1; 
         }
         
@@ -658,9 +678,11 @@ int main(int argc, char* argv[]){
         SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
         SDL_RenderPresent(renderer);
         
+        ListClear(&renderList, SCREEN_WIDTH);
     }
 
     //Exit Clean Up
+    ListDestroy(&renderList);
     Map_Destroy(Map);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef uint8_t Uint8;
+
 
 typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE} Texture;
 typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR} WallType;
@@ -18,9 +18,9 @@ typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR} WallType;
 typedef struct{
     float depth; //using map axis for directions
     float width;
-    Uint8 isXAligned;
-    Uint8 mapLeftAligned;
-    Uint8 isSolid;
+    uint8_t isXAligned;
+    uint8_t mapLeftAligned;
+    uint8_t isSolid;
 }Door;
 
 typedef struct{
@@ -67,7 +67,7 @@ int map[MAPSIZE * MAPSIZE] =
   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
   1,0,0,0,0,0,2,2,2,2,2,0,0,0,0,3,6,3,0,3,0,0,0,1,
-  1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,5,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,8,0,0,0,0,0,0,0,1,
   1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,3,0,0,0,3,0,0,0,1,
   1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1,
   1,0,0,0,0,0,2,2,0,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1,
