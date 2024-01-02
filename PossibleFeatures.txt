@@ -4,13 +4,11 @@ Easiest:
     Different Wall Textures for each face
     "3D" sprites (Based on angle between player and sprite, we select a different sprite)
 
-    Transparent Door (requires refactoring the render loop to interlace sprite and wall rendering based on a ZBuffer.)
     Some sort of lighting, could be baked in
     Proper Animation System
     
     Half Floors/Different Level Walls
-    Render the sides of the transparent walls??
-    Vertical Doors (sprite zbuffer needed, as well as techniques for breaking up a pixel column)
+    Vertical Doors (sprite zbuffer needed, as well as techniques for breaking up a pixel column) Could just do an animation with transparent textures
     Moveable Walls
         Vertical Movement (need a way to draw top/bottom wall face if moving vertically)
         Horiztonal Movement (counts on non-cubic wall and requires intersection checking like the door)
@@ -23,8 +21,9 @@ Full Implements:
 ==========================
 Adding a map with multiple levels
 Adding in player height feature/making sure walls and sprites change with height too
+Render the sides of the transparent walls??
 
 Fixes:
 =======================
-Rendering floor/ceiling tiles outside the map range. Right now, memory is being access that shouldn't be
+Rendering floor/ceiling tiles outside the map range. Right now, memory weirdly
 

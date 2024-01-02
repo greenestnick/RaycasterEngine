@@ -7,7 +7,7 @@
 
 
 typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE} Texture;
-typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR} WallType;
+typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR, WALL_MULTI} WallType;
 #define MAPSIZE 24
 #define MAP_LEVELS 2
 #define MAPSIZE_ARRAY MAPSIZE * MAPSIZE * MAP_LEVELS
@@ -24,22 +24,23 @@ typedef struct{
 }Door;
 
 typedef struct{
+  Texture top;
+  Texture bottom;
+  Texture left;
+  Texture right;
+}MultiWall;
+
+typedef struct{
   WallType type;
   Texture texID;
-  Door* door;
+  void* typeData;
 }WallPiece;
 
 
 #define Map_isWall(Map, x, y) (Map[x + MAPSIZE * y].type == WALL_NULL)
 #define Map_ModifyWall(Map, x, y, wall) (Map[x + MAPSIZE * y] = wall)
 #define MakeDoor(depth, width, isXAligned, mapLeftAligned, isSolid) ((Door){depth, width, isXAligned, mapLeftAligned, isSolid})
-
-#define SetDoorStruct(mapDoor, setDoor) \
-  mapDoor->depth = setDoor.depth;\
-  mapDoor->width = setDoor.width;\
-  mapDoor->isXAligned = setDoor.isXAligned;\
-  mapDoor->mapLeftAligned = setDoor.mapLeftAligned;\
-  mapDoor->isSolid = setDoor.isSolid
+#define MakeMultiWall(top, bottom, left, right) ((MultiWall){top, bottom, left, right})
 
 
 void Map_Init(WallPiece*const map, const int*const userMap){
@@ -50,14 +51,29 @@ void Map_Init(WallPiece*const map, const int*const userMap){
 
 void Map_Destroy(WallPiece*const map){
   for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
-    if(map[i].door != NULL) free(map[i].door);
+    if(map[i].typeData != NULL) free(map[i].typeData);
   }
 }
 
 void Map_AddDoor(WallPiece*const map, Uint32 x, Uint32 y, Door door){
   map[x + MAPSIZE * y].type = WALL_DOOR;
-  map[x + MAPSIZE * y].door = (Door*)malloc(sizeof(Door));
-  SetDoorStruct(map[x + MAPSIZE * y].door, door);
+  map[x + MAPSIZE * y].typeData = (Door*)malloc(sizeof(Door));
+  Door* doorPtr = (Door*) map[x + MAPSIZE * y].typeData;
+  doorPtr->depth = door.depth;
+  doorPtr->width = door.width;
+  doorPtr->isXAligned = door.isXAligned;
+  doorPtr->mapLeftAligned = door.mapLeftAligned;
+  doorPtr->isSolid = door.isSolid;
+}
+
+void Map_AddMultiWall(WallPiece*const map, Uint32 x, Uint32 y, MultiWall wall){
+  map[x + MAPSIZE * y].type = WALL_MULTI;
+  map[x + MAPSIZE * y].typeData = (MultiWall**)malloc(sizeof(MultiWall));
+  MultiWall* wallPtr = (MultiWall*) map[x + MAPSIZE * y].typeData;
+  wallPtr->top = wall.top;
+  wallPtr->bottom = wall.bottom;
+  wallPtr->left = wall.left;
+  wallPtr->right = wall.right;
 }
 
 int map[MAPSIZE * MAPSIZE] =

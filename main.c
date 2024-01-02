@@ -6,9 +6,21 @@ Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 float zBuffer[SCREEN_WIDTH];
 
 
-void RenderWall(const Player*const player, const RayHit*const rayhit, const WallPiece*const map){
+static void RenderWall(const Player*const player, const RayHit*const rayhit, const WallPiece*const map){
     if(rayhit->xTile < 0 && rayhit->yTile < 0) return; //TODO: As of now we return a struct with negative tile position. Is there a better way to represent a "NULL Struct" without a null ptr
                         
+    Uint8 textureId = map[rayhit->xTile + MAPSIZE * rayhit->yTile].texID;
+    if(map[rayhit->xTile + MAPSIZE * rayhit->yTile].type == WALL_MULTI){
+        if(rayhit->steppingInX){
+            MultiWall* mwall = (MultiWall*)map[rayhit->xTile + MAPSIZE * rayhit->yTile].typeData;
+            textureId = (rayhit->xRay > 0) ?  mwall->left : mwall->right;
+        }else{
+            MultiWall* mwall = (MultiWall*)map[rayhit->xTile + MAPSIZE * rayhit->yTile].typeData;
+            textureId = (rayhit->yRay > 0) ?  mwall->top : mwall->bottom;
+        }
+    }
+
+
     Uint8 transparencyColFlag = 0;
     float perpDist = player->xDir * rayhit->xRayLength + player->yDir * rayhit->yRayLength;
     zBuffer[rayhit->column] = perpDist;
@@ -40,7 +52,7 @@ void RenderWall(const Player*const player, const RayHit*const rayhit, const Wall
     texCol *= TEX_SIZE;
 
     for(Uint16 j = drawStart; j < drawStart + wallHeight; j++){
-        Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * map[rayhit->xTile + MAPSIZE * rayhit->yTile].texID) + (textureSurf->w) * (int)texRow);
+        Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * textureId) + (textureSurf->w) * (int)texRow);
         //TODO: Better way to organize/implement the fog? We can also cull anything far enough away where the fog the only color
         float fogDist = perpDist / MAPSIZE * 255 * 2;
         if(fogDist > 255) fogDist = 255;
@@ -117,14 +129,6 @@ void RenderSprite(const Sprite*const sprite, float playerPitch){
 }
 
 int main(int argc, char* argv[]){
-    /*
-    Uint32 top = 0xAFFF0000;
-    Uint32 bot = 0xFF0000FF;
-    Uint32 newCol = AlphaBlend(top, bot);
-    printf("%x + %x = %x\n", bot, top, newCol);
-    exit(0);
-    */
-
     if(SDL_Init(SDL_INIT_EVERYTHING) != 0){
         printf("error initializing SDL: %s\n", SDL_GetError());
         return 1;
@@ -167,6 +171,7 @@ int main(int argc, char* argv[]){
     Map_Init(Map, map);
     Map_AddDoor(Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
     Map_AddDoor(Map, 15, 5, MakeDoor(0.5, 1, 0, 1, 1));
+    Map_AddMultiWall(Map, 19, 6, MakeMultiWall(BRICK, CORRUPTED, STONE_BLUE, WOOD));
 
     const Uint32 spriteCount = 4;
     Sprite sprites[] = {
@@ -248,7 +253,7 @@ int main(int argc, char* argv[]){
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
             timer+=1;
-            Map[16 + MAPSIZE * 4].door->width = timer/255.0;
+            ((Door*)Map[16 + MAPSIZE * 4].typeData)->width = timer/255.0;
             Map[16 + MAPSIZE * 4].texID = (Uint8)(timer/255.0 * 7);
 
             if(keys[0] || keys[2]){
@@ -395,7 +400,7 @@ int main(int argc, char* argv[]){
                             }
                             doorFlag = 0;
                             
-                            Door* door = Map[lastHit.xTile + MAPSIZE * lastHit.yTile].door;
+                            Door* door = (Door*)Map[lastHit.xTile + MAPSIZE * lastHit.yTile].typeData;
                             //Intersection and Ray adjust for a door
                             {
                                 float doorDepth = door->depth; 
