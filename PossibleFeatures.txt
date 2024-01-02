@@ -1,7 +1,6 @@
 Potential Features:
 =================================
 Easiest:
-    Different Wall Textures for each face
     "3D" sprites (Based on angle between player and sprite, we select a different sprite)
 
     Some sort of lighting, could be baked in

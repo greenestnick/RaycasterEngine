@@ -37,8 +37,6 @@ typedef struct{
 }WallPiece;
 
 
-#define Map_isWall(Map, x, y) (Map[x + MAPSIZE * y].type == WALL_NULL)
-#define Map_ModifyWall(Map, x, y, wall) (Map[x + MAPSIZE * y] = wall)
 #define MakeDoor(depth, width, isXAligned, mapLeftAligned, isSolid) ((Door){depth, width, isXAligned, mapLeftAligned, isSolid})
 #define MakeMultiWall(top, bottom, left, right) ((MultiWall){top, bottom, left, right})
 
@@ -86,7 +84,7 @@ int map[MAPSIZE * MAPSIZE] =
   1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,8,0,0,0,0,0,0,0,1,
   1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,3,0,0,0,3,0,0,0,1,
   1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,2,2,0,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1,
+  1,0,0,0,0,0,2,2,0,2,2,0,0,0,0,3,0,8,0,3,0,0,0,1,
   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,

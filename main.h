@@ -55,7 +55,7 @@ Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
     case 0: return bottom;
     case 255: return top;
   }
-
+  
   Uint8 invAlpha = 255 - (Uint8)alpha;
   Uint8 rt, gt, bt, rb, bb, gb;
   rb = (Uint8)(bottom >> 16);

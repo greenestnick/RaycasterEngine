@@ -67,7 +67,7 @@ static void RenderWall(const Player*const player, const RayHit*const rayhit, con
     }  
 }
 
-void RenderSprite(const Sprite*const sprite, float playerPitch){
+static void RenderSprite(const Sprite*const sprite, Player* player){
     float xSpriteCam = sprite->xCamPos;
     float ySpriteCam = sprite->yCamPos;
 
@@ -80,7 +80,7 @@ void RenderSprite(const Sprite*const sprite, float playerPitch){
     //adjust screen and texture bounds
     int xStart = (int)(xScreenPos - spriteSize/2.0);
     int xEnd = xStart + spriteSize;
-    int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0) - (sprite->heightAdjust * SCREEN_HEIGHT/2.0)/ySpriteCam + playerPitch;
+    int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0) - (sprite->heightAdjust * SCREEN_HEIGHT/2.0)/ySpriteCam + player->pitch;
     int yEnd = yStart + spriteSize;
 
     float texStep = TEX_SIZE / spriteSize;
@@ -553,13 +553,13 @@ int main(int argc, char* argv[]){
             float xSpriteCam = (player.yDir * xDiff - player.xDir * yDiff) / denom;
             float ySpriteCam = (-player.yPlane * xDiff + player.xPlane * yDiff) / denom;
 
-
             sprites[i].xCamPos = xSpriteCam;
             sprites[i].yCamPos = ySpriteCam;
 
             spriteZBuffer[i] = i;
         }
         
+
         //==========================================Rendering Pass==============================================================
         Uint32 ii = 0;
         for(; ii < renderList.size; ii++){
@@ -606,7 +606,7 @@ int main(int argc, char* argv[]){
         for(Uint32 i = 0; i < zBuffLen; i++){
             if(zBufferAllType[i]){
                 Sprite* sprite = (Sprite*)zBufferAll[i];
-                RenderSprite(sprite, player.pitch);
+                RenderSprite(sprite, &player);
             }else{
                 RayHit* rayhit = (RayHit*)zBufferAll[i];
                 RenderWall(&player, rayhit, Map);
