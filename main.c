@@ -109,8 +109,19 @@ int main(int argc, char* argv[]){
     Uint8 keys[6] = {0,0,0,0,0,0};
     Uint8 running = 1;
     Uint8 timer = 0;
+    Uint32 fps_last = SDL_GetTicks();
+    Uint32 frameCounter = 0;
     while(running){
     
+        //=============================FPS Counter=================================
+        
+        frameCounter++;
+        if(SDL_GetTicks() - fps_last >= 250){
+            printf("FPS: %f\n", (float)frameCounter/250.0 * 1000.0);
+            frameCounter = 0;
+            fps_last = SDL_GetTicks();
+        }
+        
 
         //===========================================Event Handling=================================================================
         while(SDL_PollEvent(&event)){
