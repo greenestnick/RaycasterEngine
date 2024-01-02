@@ -27,6 +27,10 @@ void ListClear(RenderList* list, uint32_t newSize){
     list->list_array = (RayHit*)realloc(list->list_array, sizeof(RayHit)*newSize);
 }
 
+void ListReturnHome(RenderList* list){
+    list->size = 0;
+}
+
 void ListDestroy(RenderList* list){
     free(list->list_array);
     list->list_array = NULL;

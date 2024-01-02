@@ -6,52 +6,6 @@ Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 float zBuffer[SCREEN_WIDTH];
 
 
-//TODO: We need to pass some door struct with more information on direction, depth, width, ect
-Uint8 RayDoorIntersect(const Door* const door, const RayHit* const wallHit, RayHit* const nextHit, const Player* const player, float slope, float inv_slope){ 
-    float doorDepth = door->depth; 
-    float doorWidth = door->width; 
-    Uint8 doorDir = door->isXAligned;
-    int8_t doorStart = door->mapLeftAligned;
-
-    doorDepth = (doorDir) ? ((nextHit->yRay > 0) ? doorDepth : 1 - doorDepth) : ((nextHit->xRay > 0) ? doorDepth : 1 - doorDepth);
-
-    float nextDepth = (doorDir) ? nextHit->yRayLength : nextHit->xRayLength;
-    float wallStart = (doorDir) ? wallHit->yRayLength : wallHit->xRayLength;
-    int8_t rayDir = (doorDir) ? ((nextHit->yRay > 0) ? 1 : -1) : ((nextHit->xRay > 0) ? 1 : -1);
-    float rayDepthIntoWall = (nextDepth - wallStart) * rayDir;
-
-    //if we only hit the adjecent wall sides
-    if(rayDepthIntoWall < doorDepth) return 0;  
-    
-    //Handling the door portion
-    if(doorDir){
-        if(wallHit->yTile == nextHit->yTile) nextHit->steppingInX = !nextHit->steppingInX;
-    }else{
-        if(wallHit->xTile == nextHit->xTile) nextHit->steppingInX = !nextHit->steppingInX;
-    }
-    nextHit->xTile = wallHit->xTile;
-    nextHit->yTile = wallHit->yTile;
-
-    //Adjust ray to hit door
-    float xAdjust = doorDepth * rayDir; 
-    float yAdjust = doorDepth * rayDir;
-    
-    if(doorDir) xAdjust *= inv_slope;
-    else yAdjust *= slope;
-    
-    nextHit->xRayLength = wallHit->xRayLength + xAdjust;
-    nextHit->yRayLength = wallHit->yRayLength + yAdjust;
-    
-    //Door Width Checking
-    float widthCheck = (doorDir) ? (nextHit->xRayLength + player->xPos) : (nextHit->yRayLength + player->yPos);
-    widthCheck -= (int)widthCheck;
-    if(doorStart) widthCheck = 1 - widthCheck;
-    widthCheck -= doorWidth;
-    if(widthCheck >= 0) return 1;
-   
-    return 0;
-}
-
 void RenderWall(const Player*const player, const RayHit*const rayhit, const WallPiece*const map){
     if(rayhit->xTile < 0 && rayhit->yTile < 0) return; //TODO: As of now we return a struct with negative tile position. Is there a better way to represent a "NULL Struct" without a null ptr
                         
@@ -224,7 +178,6 @@ int main(int argc, char* argv[]){
     Uint32 fps_last = SDL_GetTicks();
     Uint32 frameCounter = 0;
     while(running){
-        
         
         //=============================FPS Counter=================================
         frameCounter++;
@@ -423,6 +376,7 @@ int main(int argc, char* argv[]){
 
                         rayhit = (RayHit){xRay, yRay, xFinish, yFinish, xTile, yTile, col, steppingInX};
                         
+                        
                         if(Map[xTile + MAPSIZE * yTile].type == WALL_DOOR || doorFlag){
                             if(!doorFlag){
                                 doorFlag = 1;
@@ -434,15 +388,59 @@ int main(int argc, char* argv[]){
                                 continue;
                             }
                             doorFlag = 0;
+                            
+                            Door* door = Map[lastHit.xTile + MAPSIZE * lastHit.yTile].door;
+                            //Intersection and Ray adjust for a door
+                            {
+                                float doorDepth = door->depth; 
+                                float doorWidth = door->width; 
+                                Uint8 doorDir = door->isXAligned;
+                                int8_t doorStart = door->mapLeftAligned;
 
-                            Uint8 doorContinue = RayDoorIntersect(Map[lastHit.xTile + MAPSIZE * lastHit.yTile].door, &lastHit, &rayhit, &player, slope, inv_slope);
-                            if(doorContinue){
-                                xTile = lastHit.xTile;
-                                yTile = lastHit.yTile;
-                                continue;
+                                doorDepth = (doorDir) ? ((rayhit.yRay > 0) ? doorDepth : 1 - doorDepth) : ((rayhit.xRay > 0) ? doorDepth : 1 - doorDepth);
+
+                                float nextDepth = (doorDir) ? rayhit.yRayLength : rayhit.xRayLength;
+                                float wallStart = (doorDir) ? lastHit.yRayLength : lastHit.xRayLength;
+                                int8_t rayDir = (doorDir) ? ((rayhit.yRay > 0) ? 1 : -1) : ((rayhit.xRay > 0) ? 1 : -1);
+                                float rayDepthIntoWall = (nextDepth - wallStart) * rayDir;
+
+                                //if we only hit the adjecent wall sides
+                                if(rayDepthIntoWall < doorDepth) break;  
+                                
+                                //Handling the door portion
+                                if(doorDir){
+                                    if(lastHit.yTile == rayhit.yTile) rayhit.steppingInX = !rayhit.steppingInX;
+                                }else{
+                                    if(lastHit.xTile == rayhit.xTile) rayhit.steppingInX = !rayhit.steppingInX;
+                                }
+                                rayhit.xTile = lastHit.xTile;
+                                rayhit.yTile = lastHit.yTile;
+
+                                //Adjust ray to hit door
+                                float xAdjust = doorDepth * rayDir; 
+                                float yAdjust = doorDepth * rayDir;
+                                
+                                if(doorDir) xAdjust *= inv_slope;
+                                else yAdjust *= slope;
+                                
+                                rayhit.xRayLength = lastHit.xRayLength + xAdjust;
+                                rayhit.yRayLength = lastHit.yRayLength + yAdjust;
+                                
+                                //Door Width Checking
+                                float widthCheck = (doorDir) ? (rayhit.xRayLength + player.xPos) : (rayhit.yRayLength + player.yPos);
+                                widthCheck -= (int)widthCheck;
+                                if(doorStart) widthCheck = 1 - widthCheck;
+                                widthCheck -= doorWidth;
+                                if(widthCheck >= 0){
+                                    xTile = lastHit.xTile;
+                                    yTile = lastHit.yTile;
+                                    continue;
+                                }
+                            
                             }
 
-                            if(Map[lastHit.xTile + MAPSIZE * lastHit.yTile].texID == 8){
+                            Uint8 isTransparent = (Map[lastHit.xTile + MAPSIZE * lastHit.yTile].texID == 8); //TODO: Find a way to encode transparency info with texture data
+                            if(isTransparent){
                                 ListAppend(&renderList, rayhit);
                                 xTile = lastHit.xTile;
                                 yTile = lastHit.yTile;
@@ -518,11 +516,11 @@ int main(int argc, char* argv[]){
             //RenderWall(&player, &rayhit, Map);
         }
 
-        //==========================================Render Sprites==============================================================
-        
+
+        //==========================================Sprite Transformations==============================================================
         Uint8 spriteZBuffer[spriteCount];
         Uint32 zBuffLen = renderList.size + spriteCount; 
-        Uint64 zBufferAll[zBuffLen];
+        void* zBufferAll[zBuffLen];
         Uint8 zBufferAllType[zBuffLen];
 
         //Calculate all sprites in camera space
@@ -543,101 +541,22 @@ int main(int argc, char* argv[]){
             spriteZBuffer[i] = i;
         }
         
-        //sort depths into zbuffer -- TEMP BUBBLE SORT
-        /*
-        for(Uint32 i = 0; i < spriteCount; i++){
-            for(Uint32 j = 1; j < spriteCount; j++){
-                Uint32 k1 = spriteZBuffer[j - 1];
-                Uint32 k2 = spriteZBuffer[j];
-                if(sprites[k1].yCamPos < sprites[k2].yCamPos){;
-                    spriteZBuffer[j - 1] = spriteZBuffer[j];
-                    spriteZBuffer[j] = k1;
-                }
-            }
-        }
-        */
-        //render sprites
-        /*
-        float xSprite = 0, ySprite = 0;
-        for(Uint32 i = 0; i < spriteCount; i++){
-            Uint8 index = spriteZBuffer[i];
-            float xSpriteCam = sprites[index].xCamPos;
-            float ySpriteCam = sprites[index].yCamPos;
-
-            if(ySpriteCam <= 0) continue;   //Only render if in front of the player
-           
-            //get the screen width and height
-            float spriteSize = sprites[index].scale * (float)SCREEN_HEIGHT / ySpriteCam;
-            int xScreenPos = (SCREEN_WIDTH / 2.0) * (1 + xSpriteCam/ySpriteCam); //for a 90deg FOV, the view triangle's slope is 1, compare that to the slope of the triangle formed by the player and object
-            
-            //adjust screen and texture bounds
-            int xStart = (int)(xScreenPos - spriteSize/2.0);
-            int xEnd = xStart + spriteSize;
-            int yStart = (int)(SCREEN_HEIGHT/2.0 - spriteSize/2.0) - (sprites[index].heightAdjust * SCREEN_HEIGHT/2.0)/ySpriteCam + player.pitch;
-            int yEnd = yStart + spriteSize;
-
-            float texStep = TEX_SIZE / spriteSize;
-            float texCol = 0;
-            float texRowStart = 0;
-
-            if(xStart < 0){
-                texCol = -xStart/spriteSize * TEX_SIZE;
-                xStart = 0;
-                xEnd += xStart;
-            }
-            if(xEnd > SCREEN_WIDTH) xEnd = SCREEN_WIDTH;
-
-            
-            if(yStart < 0){
-                texRowStart = -yStart / spriteSize * TEX_SIZE;
-                yStart = 0;
-            }
-            if(yEnd > SCREEN_HEIGHT) yEnd = SCREEN_HEIGHT;
-            
-
-            //render
-            for(int x = xStart; x < xEnd; x++){
-                if(zBuffer[x] < ySpriteCam){
-                    texCol += texStep;
-                    continue;
-                }
-
-                float texRow = texRowStart;
-                for(int y = yStart; y < yEnd; y++){
-                    Uint32 color = *((Uint32*)spriteSurf->pixels + (int)texCol + (TEX_SIZE*sprites[index].spriteTextureID) + (spriteSurf->w) * (int)texRow);
-                    texRow += texStep;
-
-                    float fogDist = ySpriteCam / MAPSIZE * 255 * 2;
-                    if(fogDist > 255) fogDist = 255;
-                    Uint32 fogColor = (Uint8)fogDist << 24;
-                    color = AlphaBlend(color, pixels[x + SCREEN_WIDTH * y]);
-                    if(!color) continue;
-                    
-                    color = AlphaBlend(fogColor, color);
-                    pixels[x + SCREEN_WIDTH * y] = color;
-                    
-                }
-                texCol += texStep;
-            }
-        }
-        */
-
+        //==========================================Rendering Pass==============================================================
         Uint32 ii = 0;
         for(; ii < renderList.size; ii++){
-            zBufferAll[ii] = (Uint64)(renderList.list_array + ii);
+            zBufferAll[ii] = (void*)(renderList.list_array + ii);
             zBufferAllType[ii] = 0; 
         }
         for(; ii < zBuffLen; ii++){
-            zBufferAll[ii] = (Uint64)(sprites + (ii - renderList.size));
+            zBufferAll[ii] = (void*)(sprites + (ii - renderList.size));
             zBufferAllType[ii] = 1; 
         }
         
-        
-
+        //Sorting ZBuffer
         for(Uint32 i = 0; i < zBuffLen; i++){
             for(Uint32 j = 1; j < zBuffLen; j++){
-                Uint64 k1 = zBufferAll[j - 1];
-                Uint64 k2 = zBufferAll[j];
+                void* k1 = zBufferAll[j - 1];
+                void* k2 = zBufferAll[j];
                 float d1, d2;
 
                 if(zBufferAllType[j - 1]){
@@ -675,12 +594,11 @@ int main(int argc, char* argv[]){
             }
         }
     
-
         SDL_UpdateTexture(screenTexture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
         SDL_RenderPresent(renderer);
         
-        ListClear(&renderList, SCREEN_WIDTH);
+        ListReturnHome(&renderList);
     }
 
     //Exit Clean Up
