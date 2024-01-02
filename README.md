@@ -15,8 +15,8 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
 - Rending Muliple Levels
 
 ## Future Features:
-[] "3D" sprites
-[] Proper Animation
-[] Proper Texture Loading,Access System
-[] Proper Map System
-[] Better way to design and load map data
+- "3D" sprites
+- Proper Animation
+- Proper Texture Loading,Access System
+- Proper Map System
+- Better way to design and load map data
