@@ -22,15 +22,15 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
 - Proper Fog (Might mix with lighting in some way)
     - If we know the fog will block walls/sprites, we can simply not render them as well
 
-# Smaller Updates:
+### Smaller Updates:
 - Render the sides of transparent walls, or add option too
-- Door textures move with door opening and closing using offset
 - Use simple shading for walls based on the side
 - Fix mouse control (mostly horizontal direction)
     - One fix is to have the mouse move around the screen as if the screen was torus
 - Add player height control option
+- Appending many columns to the list is quite slow (perhaps passing a rayhit by copy is just too expensive)
 
-# Other possible ideas:
+### Other possible ideas:
 - Vertically Opening doors (could just use tranparent texture animations)
 - Lighting System
 - Floors/Ceiling slabs, depth
