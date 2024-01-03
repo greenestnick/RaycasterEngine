@@ -3,7 +3,17 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-#include "stack.h" //TODO: TEMP, needs access to rayhit
+
+typedef struct{
+    float xRay;
+    float yRay;
+    float xRayLength;
+    float yRayLength;
+    Uint32 xTile;
+    Uint32 yTile;
+    Uint32 column;
+    Uint8 steppingInX;
+}RayHit;
 
 typedef struct{
     uint32_t size;

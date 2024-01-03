@@ -4,19 +4,18 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-
-
-typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE} Texture;
-typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR, WALL_MULTI} WallType;
 #define MAPSIZE 24
 #define MAP_LEVELS 2
 #define MAPSIZE_ARRAY MAPSIZE * MAPSIZE * MAP_LEVELS
 
-//TODO: Tensor for storing multiple levels, some sort of level editor. May require multiple raycasts if the levels are different enough
-//TODO: Make a map structure so the user doesn't have to explicitly create the map array
+#define MakeDoor(depth, width, isXAligned, mapLeftAligned, isSolid) ((Door){depth, width, isXAligned, mapLeftAligned, isSolid})
+#define MakeMultiWall(top, bottom, left, right) ((MultiWall){top, bottom, left, right})
+
+typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE} Texture;
+typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR, WALL_MULTI} WallType;
 
 typedef struct{
-    float depth; //using map axis for directions
+    float depth; //in positive x/y dir
     float width;
     uint8_t isXAligned;
     uint8_t mapLeftAligned;
@@ -35,10 +34,6 @@ typedef struct{
   Texture texID;
   void* typeData;
 }WallPiece;
-
-
-#define MakeDoor(depth, width, isXAligned, mapLeftAligned, isSolid) ((Door){depth, width, isXAligned, mapLeftAligned, isSolid})
-#define MakeMultiWall(top, bottom, left, right) ((MultiWall){top, bottom, left, right})
 
 
 void Map_Init(WallPiece*const map, const int*const userMap){

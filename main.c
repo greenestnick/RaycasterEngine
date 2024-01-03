@@ -1,7 +1,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
-#include "stack.h"
 #include "map.h"
 #include "RenderList.h"
 
@@ -14,8 +13,6 @@
 #define TEX_SIZE 32
 
 #define UPDATE_TIMER_MS 16 //about 60 ticks per second
-
-//TODO: Define a macro-function to get a color from the textSurf taking in u,v, and texId
 
 typedef struct{
     float xPos;
@@ -44,6 +41,10 @@ typedef struct{
   float yCamPos;
 }Sprite;
 
+SDL_Surface* textureSurf;
+SDL_Surface* spriteSurf;
+Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
+float zBuffer[SCREEN_WIDTH];
 
 static Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
   Uint8 alpha = (top >> 24);
@@ -69,14 +70,7 @@ static Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
   return 0xFF000000 | (nr << 16) | (ng << 8) | (nb);
 }
 
-SDL_Surface* textureSurf;
-SDL_Surface* spriteSurf;
-Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
-float zBuffer[SCREEN_WIDTH];
-
-static void RenderWall(const Player*const player, const RayHit*const rayhit, const WallPiece*const map){
-    if(rayhit->xTile < 0 && rayhit->yTile < 0) return; //TODO: As of now we return a struct with negative tile position. Is there a better way to represent a "NULL Struct" without a null ptr
-                        
+static void RenderWall(const Player*const player, const RayHit*const rayhit, const WallPiece*const map){                        
     Uint8 textureId = map[rayhit->xTile + MAPSIZE * rayhit->yTile].texID;
     if(map[rayhit->xTile + MAPSIZE * rayhit->yTile].type == WALL_MULTI){
         if(rayhit->steppingInX){
@@ -121,15 +115,11 @@ static void RenderWall(const Player*const player, const RayHit*const rayhit, con
 
     for(Uint16 j = drawStart; j < drawStart + wallHeight; j++){
         Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * textureId) + (textureSurf->w) * (int)texRow);
-        //TODO: Better way to organize/implement the fog? We can also cull anything far enough away where the fog the only color
-        float fogDist = perpDist / MAPSIZE * 255 * 2;
-        if(fogDist > 255) fogDist = 255;
-        Uint32 fogColor = (Uint8)fogDist << 24;
 
         if(color >> 24 < 255)
-            pixels[rayhit->column + SCREEN_WIDTH * j] = AlphaBlend(fogColor, AlphaBlend(color, pixels[rayhit->column + SCREEN_WIDTH * j])); //TODO: Add directional shading
+            pixels[rayhit->column + SCREEN_WIDTH * j] = AlphaBlend(color, pixels[rayhit->column + SCREEN_WIDTH * j]);
         else
-            pixels[rayhit->column + SCREEN_WIDTH * j] = AlphaBlend(fogColor, color);
+            pixels[rayhit->column + SCREEN_WIDTH * j] = color;
 
         texRow += texRowStep;
     }  
@@ -300,9 +290,6 @@ int main(int argc, char* argv[]){
                 mouse.x = xNew;
                 mouse.y = yNew;
 
-                //TODO: only change direction if the mouse is moving almost horizontally
-                //TODO: either recenter mouse after every movement, or allow mouse to move on screen pacman torus style
-
                 float oldDirX = player.xDir;
                 float angVel = 3.14 * mouse.xVel/(SCREEN_WIDTH / 2.0);
                 mouse.xVel = 0;
@@ -369,39 +356,48 @@ int main(int argc, char* argv[]){
             float screenPitch = (float)(SCREEN_HEIGHT >> 1) - i + player.pitch;
             if(floorRender) screenPitch = -screenPitch;
             float rowDist = playerHeight / screenPitch;
-            if(!floorRender) rowDist *= 5;
             if(screenPitch == 0) continue;
+            
+            //if(!floorRender) rowDist *= 5; //TODO: Raise ceiling to map's highest level
 
             float xHit = player.xPos + rowDist * (player.xDir - player.xPlane);
             float yHit = player.yPos + rowDist * (player.yDir - player.yPlane);
             float xStep = (2 * player.xPlane * rowDist) / SCREEN_WIDTH;
             float yStep = (2 * player.yPlane * rowDist) / SCREEN_WIDTH;
-      
+
+
             //Scanline across the screen
-            for(Uint32 j = 0; j < SCREEN_WIDTH; j++){                 
+            for(Uint32 j = 0; j < SCREEN_WIDTH; j++){
+                if(xHit < 0 || yHit < 0 || xHit > MAPSIZE || yHit > MAPSIZE){
+                    xHit += xStep;
+                    yHit += yStep;
+                    continue;
+                }
+
                 int xTile = (int)xHit;
                 int yTile = (int)yHit;
                 float texCol = (xHit - xTile) * TEX_SIZE;
                 float texRow = (yHit - yTile) * TEX_SIZE;
                 Uint8 tileID = 0;
 
-                float fogDist = rowDist / MAPSIZE * 255 * 2;
-                if(fogDist > 255) fogDist = 255;
-                Uint32 fogColor = (Uint8)fogDist << 24;
-
+                
                 if(floorRender){
-                    if(xTile < 0 || xTile >= MAPSIZE || yTile < 0 || yTile >= MAPSIZE) tileID = 0;
-                    else tileID = floorMap[xTile + MAPSIZE * yTile];
+                    if(xTile < 0 || xTile >= MAPSIZE || yTile < 0 || yTile >= MAPSIZE){
+                        tileID = floorMap[xTile + MAPSIZE * yTile];
+                    }else{
+                        tileID = floorMap[xTile + MAPSIZE * yTile];
+                    }
 
                     Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * tileID) + (textureSurf->w) * (int)texRow);
-                    color = AlphaBlend(fogColor, color);
                     pixels[j + SCREEN_WIDTH * i] = color;
                 }else{
-                    if(xTile < 0 || xTile >= MAPSIZE || yTile < 0 || yTile >= MAPSIZE) tileID = 0;
-                    else tileID = ceilingMap[xTile + MAPSIZE * yTile];
-                    
+                    if(xTile < 0 || xTile >= MAPSIZE || yTile < 0 || yTile >= MAPSIZE){
+                         tileID = 0;
+                    }else{ 
+                        tileID = ceilingMap[xTile + MAPSIZE * yTile];
+                    }
+
                     Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * tileID) + (textureSurf->w) * (int)texRow);
-                    color = AlphaBlend(fogColor, color);
                     pixels[j + SCREEN_WIDTH * i] = (color>>1) & 0x7F7F7F7F;
                 }
                 xHit += xStep;
@@ -437,7 +433,6 @@ int main(int argc, char* argv[]){
 
                 Uint8 steppingInX = 0;
 
-                //TODO: Would I rather use the boolean flag method to achieve one more DDA step, or just write a single step inside the door section
                 Uint8 doorFlag = 0;
                 RayHit lastHit;
 
@@ -546,62 +541,8 @@ int main(int argc, char* argv[]){
                 }
             }
 
-            //Rendering walls/doors
-            /*
-            for(int i = 0; i < 3; i++){//TEMP: Go through and draw ever level offseting by wallheight * i
-                if(rayhit.xTile < 0 && rayhit.yTile < 0) continue; //TODO: As of now we return a struct with negative tile position. Is there a better way to represent a "NULL Struct" without a null ptr
-                
-                Uint8 transparencyColFlag = 0;
-                float perpDist = player.xDir * rayhit.xRayLength + player.yDir * rayhit.yRayLength;
-                zBuffer[col] = perpDist;
-                float wallHeight = (float)SCREEN_HEIGHT / perpDist;
-                            
-                int drawStart = (SCREEN_HEIGHT - wallHeight) / 2 + player.pitch;
-                drawStart -= wallHeight * i;
-                
-                float texRow = 0;
-                float texRowStep = TEX_SIZE;
-                float wallEnd = drawStart + wallHeight;
-                float wallHeightOld = wallHeight;
-                //Clip Top
-                if(drawStart < 0){
-                    texRow = -drawStart / wallHeight * TEX_SIZE;
-                    texRowStep -= texRow; 
-                    wallHeight += drawStart;
-                    drawStart = 0;
-                }
-                //Clip Bottom
-                if(wallEnd >= SCREEN_HEIGHT){
-                    texRowStep -= (wallEnd - SCREEN_HEIGHT) / wallHeightOld * TEX_SIZE;
-                    wallHeight = SCREEN_HEIGHT - drawStart;
-                }
-                texRowStep /= wallHeight;
-
-                Uint16 j = drawStart;
-                float texCol = (rayhit.steppingInX) ? (player.yPos + rayhit.yRayLength) : (player.xPos + rayhit.xRayLength);
-                texCol -= (int)texCol; //only get the decimal part
-                texCol *= TEX_SIZE;
-
-                
-                for(; j < drawStart + wallHeight; j++){
-                    Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * Map[rayhit.xTile + MAPSIZE * rayhit.yTile].texID) + (textureSurf->w) * (int)texRow);
-                    //TODO: Better way to organize/implement the fog? We can also cull anything far enough away where the fog the only color
-                    float fogDist = perpDist / MAPSIZE * 255 * 2;
-                    if(fogDist > 255) fogDist = 255;
-                    Uint32 fogColor = (Uint8)fogDist << 24;
-
-                    if(color >> 24 < 255)
-                        pixels[col + SCREEN_WIDTH * j] = AlphaBlend(fogColor, AlphaBlend(color, pixels[col + SCREEN_WIDTH * j])); //TODO: Add directional shading
-                    else
-                        pixels[col + SCREEN_WIDTH * j] = AlphaBlend(fogColor, color);
-
-                    texRow += texRowStep;
-                }
-            }
-            */
             hits[col] = rayhit;
             ListAppend(&renderList, rayhit);
-            //RenderWall(&player, &rayhit, Map);
         }
 
         //==========================================Sprite Transformations==============================================================
@@ -697,6 +638,7 @@ int main(int argc, char* argv[]){
     SDL_DestroyWindow(window);
     SDL_DestroyTexture(screenTexture);
     SDL_FreeSurface(textureSurf);
+    SDL_FreeSurface(spriteSurf);
     SDL_Quit();
     return 0;
 }
