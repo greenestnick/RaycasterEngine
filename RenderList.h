@@ -5,8 +5,6 @@
 #include <stdint.h>
 
 typedef struct{
-    float xRay;
-    float yRay;
     float xRayLength;
     float yRayLength;
     Uint32 xTile;

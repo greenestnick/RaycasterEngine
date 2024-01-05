@@ -7,7 +7,6 @@
 
 #define SCREEN_WIDTH 711
 #define SCREEN_HEIGHT 400
-
 #define WIN_TITLE "Raycaster Game"
 
 #define MAX_SLOPE 10000000000
@@ -398,7 +397,7 @@ int main(int argc, char* argv[]){
                     float xFinish = xRay/rayNorm * rayLength;
                     float yFinish = yRay/rayNorm * rayLength;
 
-                    rayhit = (RayHit){xRay, yRay, xFinish, yFinish, xTile, yTile, col, steppingInX};
+                    rayhit = (RayHit){xFinish, yFinish, xTile, yTile, col, steppingInX};
                     
                     if(Map_GetWall(&Map, xTile, yTile, 0)->type == WALL_DOOR || doorFlag){
                         if(!doorFlag){
@@ -421,11 +420,11 @@ int main(int argc, char* argv[]){
                             Uint8 doorDir = door->isXAligned;
                             int8_t doorStart = door->mapOriginAligned;
 
-                            doorDepth = (doorDir) ? ((rayhit.yRay > 0) ? doorDepth : 1 - doorDepth) : ((rayhit.xRay > 0) ? doorDepth : 1 - doorDepth);
+                            doorDepth = (doorDir) ? ((rayhit.yRayLength > 0) ? doorDepth : 1 - doorDepth) : ((rayhit.xRayLength > 0) ? doorDepth : 1 - doorDepth);
 
                             float nextDepth = (doorDir) ? rayhit.yRayLength : rayhit.xRayLength;
                             float wallStart = (doorDir) ? lastHit.yRayLength : lastHit.xRayLength;
-                            int8_t rayDir = (doorDir) ? ((rayhit.yRay > 0) ? 1 : -1) : ((rayhit.xRay > 0) ? 1 : -1);
+                            int8_t rayDir = (doorDir) ? ((rayhit.yRayLength > 0) ? 1 : -1) : ((rayhit.xRayLength > 0) ? 1 : -1);
                             float rayDepthIntoWall = (nextDepth - wallStart) * rayDir;
 
                             //if we only hit the adjecent wall sides
@@ -632,10 +631,10 @@ int main(int argc, char* argv[]){
                 if(wallPiece->type == WALL_MULTI){
                     if(rayhit->steppingInX){
                         MultiWall* mwall = (MultiWall*)wallPiece->typeData;
-                        textureId = (rayhit->xRay > 0) ?  mwall->left : mwall->right;
+                        textureId = (rayhit->xRayLength > 0) ?  mwall->left : mwall->right;
                     }else{
                         MultiWall* mwall = (MultiWall*)wallPiece->typeData;
-                        textureId = (rayhit->yRay > 0) ?  mwall->top : mwall->bottom;
+                        textureId = (rayhit->yRayLength > 0) ?  mwall->top : mwall->bottom;
                     }
                 }
 
