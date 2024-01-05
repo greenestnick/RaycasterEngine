@@ -8,7 +8,7 @@
 #define MAP_LEVELS 2
 #define MAPSIZE_ARRAY MAPSIZE * MAPSIZE * MAP_LEVELS
 
-#define MakeDoor(depth, width, isXAligned, mapLeftAligned, isSolid) ((Door){depth, width, isXAligned, mapLeftAligned, isSolid})
+#define MakeDoor(depth, width, isXAligned, mapOriginAligned, isSolid) ((Door){depth, width, isXAligned, mapOriginAligned, isSolid})
 #define MakeMultiWall(top, bottom, left, right) ((MultiWall){top, bottom, left, right})
 
 typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE} Texture;
@@ -18,7 +18,7 @@ typedef struct{
     float depth; //in positive x/y dir
     float width;
     uint8_t isXAligned;
-    uint8_t mapLeftAligned;
+    uint8_t mapOriginAligned;
     uint8_t isSolid;
 }Door;
 
@@ -35,12 +35,6 @@ typedef struct{
   void* typeData;
 }WallPiece;
 
-
-/*
-void Map_MapTextures(Uint32 texMap){
-  
-}
-*/
 
 void Map_Init(WallPiece*const map, const int*const userMap){
   for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
@@ -61,7 +55,7 @@ void Map_AddDoor(WallPiece*const map, Uint32 x, Uint32 y, Door door){
   doorPtr->depth = door.depth;
   doorPtr->width = door.width;
   doorPtr->isXAligned = door.isXAligned;
-  doorPtr->mapLeftAligned = door.mapLeftAligned;
+  doorPtr->mapOriginAligned = door.mapOriginAligned;
   doorPtr->isSolid = door.isSolid;
 }
 

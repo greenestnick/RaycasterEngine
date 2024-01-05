@@ -16,7 +16,6 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
 ## Future Features:
 - "3D" sprites
 - Proper Animation
-- Proper Texture Loading,Access System
 - Proper Map System
 - Better way to design and load map data
 - Proper Fog (Might mix with lighting in some way)

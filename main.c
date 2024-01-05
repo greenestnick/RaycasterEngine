@@ -108,7 +108,7 @@ int main(int argc, char* argv[]){
     WallPiece Map[MAPSIZE_ARRAY];
     Map_Init(Map, map);
     Map_AddDoor(Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
-    Map_AddDoor(Map, 15, 5, MakeDoor(0.5, 1, 0, 1, 1));
+    Map_AddDoor(Map, 15, 5, MakeDoor(0.5, 1, 0, 0, 1));
     Map_AddMultiWall(Map, 19, 6, MakeMultiWall(BRICK, CORRUPTED, STONE_BLUE, WOOD));
 
     const Uint32 spriteCount = 4;
@@ -334,7 +334,7 @@ int main(int argc, char* argv[]){
                             float doorDepth = door->depth; 
                             float doorWidth = door->width; 
                             Uint8 doorDir = door->isXAligned;
-                            int8_t doorStart = door->mapLeftAligned;
+                            int8_t doorStart = door->mapOriginAligned;
 
                             doorDepth = (doorDir) ? ((rayhit.yRay > 0) ? doorDepth : 1 - doorDepth) : ((rayhit.xRay > 0) ? doorDepth : 1 - doorDepth);
 
@@ -582,7 +582,16 @@ int main(int argc, char* argv[]){
 
                 float texCol = (rayhit->steppingInX) ? (player.yPos + rayhit->yRayLength) : (player.xPos + rayhit->xRayLength);
                 texCol -= (int)texCol; //only get the decimal part
-                if(wallPiece.type == WALL_DOOR) texCol += 1 - ((Door*)wallPiece.typeData)->width; //TODO: Add door texture offset
+
+                //Door moving texture offset
+                if(wallPiece.type == WALL_DOOR){
+                    Door* door = ((Door*)wallPiece.typeData);
+                    if(!door->mapOriginAligned){
+                         texCol += 1 - ((Door*)wallPiece.typeData)->width;
+                    }else{
+                         texCol += ((Door*)wallPiece.typeData)->width;
+                    }
+                }
                 texCol *= TEX_SIZE;
 
                 for(Uint16 j = drawStart; j < drawStart + wallHeight; j++){
