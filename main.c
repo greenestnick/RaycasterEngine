@@ -42,8 +42,7 @@ typedef struct{
   float yCamPos;
 }Sprite;
 
-TextureMap wallTextures;
-TextureMap spriteTextures;
+
 Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 float zBuffer[SCREEN_WIDTH];
 Uint8 timer = 0;
@@ -95,9 +94,8 @@ int main(int argc, char* argv[]){
         return 1;
     }
 
-  
-    wallTextures = Texture_Init("./wolftextures.png", TEX_SIZE, 1, 9, 9);
-    spriteTextures = Texture_Init("./wolfsprites.png", TEX_SIZE, 1, 4, 4);
+    TextureMap wallTextures = Texture_Init("./wolftextures.png", TEX_SIZE, 1, 9, 9);
+    TextureMap spriteTextures = Texture_Init("./wolfsprites.png", TEX_SIZE, 1, 4, 4);
 
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
@@ -105,11 +103,11 @@ int main(int argc, char* argv[]){
     Player player = {17.5, 1.5, 0.707, 0.707, -0.707, 0.707, 0};
     Mouse mouse = {0, 0, 0, 0};
 
-    WallPiece Map[MAPSIZE_ARRAY];
-    Map_Init(Map, map);
-    Map_AddDoor(Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
-    Map_AddDoor(Map, 15, 5, MakeDoor(0.5, 1, 0, 0, 1));
-    Map_AddMultiWall(Map, 19, 6, MakeMultiWall(BRICK, CORRUPTED, STONE_BLUE, WOOD));
+
+    MapStruct Map = Map_Init(MAPSIZE, 1, map_template);
+    Map_AddDoor(&Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
+    Map_AddDoor(&Map, 15, 5, MakeDoor(0.5, 1, 0, 0, 1));
+    Map_AddMultiWall(&Map, 19, 6, MakeMultiWall(BRICK, CORRUPTED, STONE_BLUE, WOOD));
 
     const Uint32 spriteCount = 4;
     Sprite sprites[] = {
@@ -186,20 +184,20 @@ int main(int argc, char* argv[]){
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
             timer+=1;
-            ((Door*)Map[16 + MAPSIZE * 4].typeData)->width = timer/255.0;
-            Map[16 + MAPSIZE * 4].texID = (Uint8)(timer/255.0 * 7);
+            ((Door*)Map_GetWall(&Map,16, 4, 0)->typeData)->width = timer/255.0;
+            Map_GetWall(&Map,16, 4, 0)->texID = (Uint8)(timer/255.0 * 7);
 
             if(keys[0] || keys[2]){
                 float xNew =  player.xPos + player.xDir/5 * (keys[0] - keys[2]);
                 float yNew = player.yPos + player.yDir/5 * (keys[0] - keys[2]);
-                if(Map[(Uint32)xNew + MAPSIZE * (Uint32)yNew].type == WALL_NULL){
+                if(Map_GetWall(&Map, xNew, yNew, 0)->type == WALL_NULL){
                     player.xPos += player.xDir/15 * (keys[0] - keys[2]);   
                     player.yPos += player.yDir/15 * (keys[0] - keys[2]);
                 }
             }else{
                 float xNew = player.xPos - player.yDir/5 * (keys[3] - keys[1]);   
                 float yNew = player.yPos + player.xDir/5 * (keys[3] - keys[1]);
-                if(Map[(Uint32)xNew + MAPSIZE * (Uint32)yNew].type == WALL_NULL){
+                if(Map_GetWall(&Map, xNew, yNew, 0)->type == WALL_NULL){
                     player.xPos -= player.yDir/15 * (keys[3] - keys[1]);   
                     player.yPos += player.xDir/15 * (keys[3] - keys[1]);
                 }
@@ -236,7 +234,7 @@ int main(int argc, char* argv[]){
             float rowDist = playerHeight / screenPitch;
             if(screenPitch == 0) continue;
             
-            //if(!floorRender) rowDist *= 5; //TODO: Raise ceiling to map's highest level
+            if(!floorRender && Map.levels > 1) rowDist *= Map.levels; //TODO: Raise ceiling to map's highest level
 
             float xHit = player.xPos + rowDist * (player.xDir - player.xPlane);
             float yHit = player.yPos + rowDist * (player.yDir - player.yPlane);
@@ -307,7 +305,8 @@ int main(int argc, char* argv[]){
                 if(steppingInX) xTile += (xRay > 0) ? 1 : -1;
                 else            yTile += (yRay > 0) ? 1 : -1;
 
-                if(Map[xTile + MAPSIZE * yTile].type != WALL_NULL || doorFlag){
+                if(Map_GetWall(&Map, xTile, yTile, 0)->type != WALL_NULL || doorFlag){
+                    
                     float rayLength = (steppingInX) ? xExtend : yExtend;
                     float rayNorm = sqrt(xRay * xRay + yRay * yRay);
 
@@ -316,7 +315,7 @@ int main(int argc, char* argv[]){
 
                     rayhit = (RayHit){xRay, yRay, xFinish, yFinish, xTile, yTile, col, steppingInX};
                     
-                    if(Map[xTile + MAPSIZE * yTile].type == WALL_DOOR || doorFlag){
+                    if(Map_GetWall(&Map, xTile, yTile, 0)->type == WALL_DOOR || doorFlag){
                         if(!doorFlag){
                             doorFlag = 1;
                             lastHit = rayhit;
@@ -328,7 +327,8 @@ int main(int argc, char* argv[]){
                         }
                         doorFlag = 0;
                         
-                        Door* door = (Door*)Map[lastHit.xTile + MAPSIZE * lastHit.yTile].typeData;
+                        Door* door = (Door*)Map_GetWall(&Map, lastHit.xTile, lastHit.yTile, 0)->typeData;
+                        
                         //Intersection and Ray adjust for a door
                         {
                             float doorDepth = door->depth; 
@@ -377,8 +377,8 @@ int main(int argc, char* argv[]){
                             }
                         
                         }
-
-                        Uint8 isTransparent = (Map[lastHit.xTile + MAPSIZE * lastHit.yTile].texID == 8); //TODO: Find a way to encode transparency info with texture data
+                        
+                        Uint8 isTransparent = (Map_GetWall(&Map, lastHit.xTile, lastHit.yTile, 0)->texID == 8); //TODO: Find a way to encode transparency info with texture data
                         if(isTransparent){
                             ListAppend(&renderList, rayhit);
                             xTile = lastHit.xTile;
@@ -389,8 +389,7 @@ int main(int argc, char* argv[]){
                         break;
                     }
 
-
-                    Uint8 isTransparent = (Map[rayhit.xTile + MAPSIZE * rayhit.yTile].texID == 8); //TODO: Find a way to encode transparency info with texture data
+                    Uint8 isTransparent = (Map_GetWall(&Map, rayhit.xTile, rayhit.yTile, 0)->texID == 8); //TODO: Find a way to encode transparency info with texture data
                     if(isTransparent){
                         ListAppend(&renderList, rayhit);
 
@@ -540,15 +539,17 @@ int main(int argc, char* argv[]){
                 }
             }else{
                 RayHit* rayhit = (RayHit*)zBufferAll[i];
-                WallPiece wallPiece = Map[rayhit->xTile + MAPSIZE * rayhit->yTile];
+                Uint8 level = 0;
+                WallPiece* wallPiece = Map_GetWall(&Map, rayhit->xTile, rayhit->yTile, level);
+                if(wallPiece->type == WALL_NULL) continue;
                 
-                Uint8 textureId = wallPiece.texID;
-                if(wallPiece.type == WALL_MULTI){
+                Uint8 textureId = wallPiece->texID;
+                if(wallPiece->type == WALL_MULTI){
                     if(rayhit->steppingInX){
-                        MultiWall* mwall = (MultiWall*)wallPiece.typeData;
+                        MultiWall* mwall = (MultiWall*)wallPiece->typeData;
                         textureId = (rayhit->xRay > 0) ?  mwall->left : mwall->right;
                     }else{
-                        MultiWall* mwall = (MultiWall*)wallPiece.typeData;
+                        MultiWall* mwall = (MultiWall*)wallPiece->typeData;
                         textureId = (rayhit->yRay > 0) ?  mwall->top : mwall->bottom;
                     }
                 }
@@ -558,9 +559,10 @@ int main(int argc, char* argv[]){
                 float perpDist =player.xDir * rayhit->xRayLength +player.yDir * rayhit->yRayLength;
                 zBuffer[rayhit->column] = perpDist;
                 float wallHeight = (float)SCREEN_HEIGHT / perpDist;
-                            
+            
+            
                 int drawStart = (SCREEN_HEIGHT - wallHeight) / 2 +player.pitch;
-                drawStart -= wallHeight * 0;// * i; TODO: Place higher levels of map here, must pass in
+                drawStart -= wallHeight * level;// * i; TODO: Place higher levels of map here, must pass in
                 
                 float texRow = 0;
                 float texRowStep = TEX_SIZE;
@@ -584,12 +586,12 @@ int main(int argc, char* argv[]){
                 texCol -= (int)texCol; //only get the decimal part
 
                 //Door moving texture offset
-                if(wallPiece.type == WALL_DOOR){
-                    Door* door = ((Door*)wallPiece.typeData);
+                if(wallPiece->type == WALL_DOOR){
+                    Door* door = ((Door*)wallPiece->typeData);
                     if(!door->mapOriginAligned){
-                         texCol += 1 - ((Door*)wallPiece.typeData)->width;
+                        texCol += 1 - ((Door*)wallPiece->typeData)->width;
                     }else{
-                         texCol += ((Door*)wallPiece.typeData)->width;
+                        texCol += ((Door*)wallPiece->typeData)->width;
                     }
                 }
                 texCol *= TEX_SIZE;
@@ -603,8 +605,7 @@ int main(int argc, char* argv[]){
                         pixels[rayhit->column + SCREEN_WIDTH * j] = color;
 
                     texRow += texRowStep;
-                }
-                
+                }             
             
             }
         }
@@ -618,7 +619,7 @@ int main(int argc, char* argv[]){
 
     //Exit Clean Up
     ListDestroy(&renderList);
-    Map_Destroy(Map);
+    Map_Destroy(&Map);
     Texture_Destroy(&spriteTextures);
     Texture_Destroy(&wallTextures);
     SDL_DestroyTexture(screenTexture);

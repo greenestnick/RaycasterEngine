@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define MAPSIZE 24
 #define MAP_LEVELS 2
@@ -35,23 +36,47 @@ typedef struct{
   void* typeData;
 }WallPiece;
 
+typedef struct{
+  Uint32 size;
+  Uint32 levels; 
+  WallPiece* mapData;
+}MapStruct;
 
-void Map_Init(WallPiece*const map, const int*const userMap){
+/*
+void Map_Init(WallPiece*const map, const int*const groundLevelMap){
   for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
-    map[i] = (WallPiece){(userMap[i] > 0), userMap[i], NULL};
+    map[i] = (WallPiece){(groundLevelMap[i] > 0), groundLevelMap[i], NULL};
   }
 }
+*/
 
-void Map_Destroy(WallPiece*const map){
-  for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
-    if(map[i].typeData != NULL) free(map[i].typeData);
+MapStruct Map_Init(Uint32 mapSize, Uint32 numLevels, const int*const mapArray){
+  WallPiece* mapDataPtr = (WallPiece*)malloc(sizeof(WallPiece) * mapSize * mapSize * numLevels);
+  for(Uint32 i = 0; i < mapSize * mapSize * numLevels; i++){
+    mapDataPtr[i] = (WallPiece){(mapArray[i] > 0), mapArray[i], NULL};
   }
+
+  return (MapStruct){mapSize, numLevels, mapDataPtr};
 }
 
-void Map_AddDoor(WallPiece*const map, Uint32 x, Uint32 y, Door door){
-  map[x + MAPSIZE * y].type = WALL_DOOR;
-  map[x + MAPSIZE * y].typeData = (Door*)malloc(sizeof(Door));
-  Door* doorPtr = (Door*) map[x + MAPSIZE * y].typeData;
+WallPiece* Map_GetWall(MapStruct*const map, Uint32 x, Uint32 y, Uint32 z){
+  return map->mapData + x + map->size*y + (map->size*map->size)*z;
+}
+
+void Map_Destroy(MapStruct* const map){
+  WallPiece* mapData = map->mapData;
+  for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
+    if(mapData[i].typeData != NULL) free(mapData[i].typeData);
+  }
+
+  if(map->mapData != NULL) free(map->mapData);
+  
+}
+
+void Map_AddDoor(MapStruct*const map, Uint32 x, Uint32 y, Door door){
+  map->mapData[x + MAPSIZE * y].type = WALL_DOOR;
+  map->mapData[x + MAPSIZE * y].typeData = (Door*)malloc(sizeof(Door));
+  Door* doorPtr = (Door*) map->mapData[x + MAPSIZE * y].typeData;
   doorPtr->depth = door.depth;
   doorPtr->width = door.width;
   doorPtr->isXAligned = door.isXAligned;
@@ -59,17 +84,24 @@ void Map_AddDoor(WallPiece*const map, Uint32 x, Uint32 y, Door door){
   doorPtr->isSolid = door.isSolid;
 }
 
-void Map_AddMultiWall(WallPiece*const map, Uint32 x, Uint32 y, MultiWall wall){
-  map[x + MAPSIZE * y].type = WALL_MULTI;
-  map[x + MAPSIZE * y].typeData = (MultiWall**)malloc(sizeof(MultiWall));
-  MultiWall* wallPtr = (MultiWall*) map[x + MAPSIZE * y].typeData;
+void Map_AddMultiWall(MapStruct*const map, Uint32 x, Uint32 y, MultiWall wall){
+  map->mapData[x + MAPSIZE * y].type = WALL_MULTI;
+  map->mapData[x + MAPSIZE * y].typeData = (MultiWall**)malloc(sizeof(MultiWall));
+  MultiWall* wallPtr = (MultiWall*) map->mapData[x + MAPSIZE * y].typeData;
   wallPtr->top = wall.top;
   wallPtr->bottom = wall.bottom;
   wallPtr->left = wall.left;
   wallPtr->right = wall.right;
 }
 
-int map[MAPSIZE * MAPSIZE] =
+/*
+void Map_InitPARSE(char* pathName){
+  FILE* file = fopen(pathName, 'r');
+  fclose(file);
+}
+*/
+
+int map_template[MAPSIZE * MAPSIZE * 2] =
 {
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
@@ -94,7 +126,32 @@ int map[MAPSIZE * MAPSIZE] =
   1,4,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
   1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+  1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+
+  1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,5,5,5,5,5,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+  1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 };
 
 int ceilingMap[MAPSIZE * MAPSIZE] =

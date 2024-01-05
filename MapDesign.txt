@@ -34,4 +34,4 @@ CEILING(:,5) = 2
 FLOOR = 3...
 FLOOR(3,3) = 5
 
-LEVEL[0](10,2) = DOOR(0.5, 0.5, 1, )
+LEVEL[0](10,2) = DOOR(0.5, 0.5, 1, 0)
