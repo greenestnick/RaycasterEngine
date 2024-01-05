@@ -36,6 +36,12 @@ typedef struct{
 }WallPiece;
 
 
+/*
+void Map_MapTextures(Uint32 texMap){
+  
+}
+*/
+
 void Map_Init(WallPiece*const map, const int*const userMap){
   for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
     map[i] = (WallPiece){(userMap[i] > 0), userMap[i], NULL};

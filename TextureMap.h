@@ -8,26 +8,35 @@ typedef struct{
     Uint8 texSize;
     Uint8 rows;
     Uint8 cols;
+    Uint32 numTextures;
     SDL_Surface* surface;
 }TextureMap;
 
 
-TextureMap TextureInit(char* path, Uint8 texSize, Uint8 rows, Uint8 cols){
+TextureMap Texture_Init(char* path, Uint8 texSize, Uint8 rows, Uint8 cols, Uint32 numTextures){
     SDL_Surface* surf = IMG_Load(path);
-    if(surf->format->format != SDL_PIXELFORMAT_ABGR8888){
-        surf = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_ABGR8888, 0);
+    if(surf->format->format != SDL_PIXELFORMAT_ARGB8888){
+        surf = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_ARGB8888, 0);
     }
 
-    return (TextureMap){texSize, rows, cols, surf};
+    return (TextureMap){texSize, rows, cols, numTextures, surf};
 }
 
-void TextureDestroy(TextureMap* texMap){
+void Texture_Destroy(TextureMap* texMap){
     if(texMap->surface != NULL)
         SDL_FreeSurface(texMap->surface);
 }
 
-Uint32 TextureMapSample(TextureMap* texMap, Uint8 x, Uint8 y, Uint8 u, Uint8 v){
-    Uint32* sample = texMap->surface->pixels + (x * texMap->texSize) + (texMap->surface->w * texMap->texSize * y) + u + (texMap->texSize * v);
+Uint32 Texture_DirectSample(const TextureMap*const  texMap, Uint32 x, Uint32 y, Uint32 u, Uint32 v){
+    Uint32* sample = (Uint32*)texMap->surface->pixels + (x * texMap->texSize) + (texMap->surface->w * y) + u + (texMap->surface->w * v);
+    return *sample;
+}
+
+Uint32 Texture_Sample(const TextureMap*const texMap, Uint32 texNum, Uint32 u, Uint32 v){
+    Uint32 x = texNum % texMap->cols;
+    Uint32 y = ((float)texNum / texMap->cols);
+
+    Uint32* sample = (Uint32*)texMap->surface->pixels + (x * texMap->texSize) + (texMap->surface->w * y) + u + (texMap->surface->w * v);
     return *sample;
 }
 

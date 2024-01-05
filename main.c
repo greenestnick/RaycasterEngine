@@ -3,11 +3,12 @@
 
 #include "map.h"
 #include "RenderList.h"
+#include "TextureMap.h"
 
 #define SCREEN_WIDTH 711
 #define SCREEN_HEIGHT 400
 
-#define WIN_TITLE "Window Title Undefined"
+#define WIN_TITLE "Raycaster Game"
 
 #define MAX_SLOPE 10000000000
 #define TEX_SIZE 32
@@ -41,8 +42,8 @@ typedef struct{
   float yCamPos;
 }Sprite;
 
-SDL_Surface* textureSurf;
-SDL_Surface* spriteSurf;
+TextureMap wallTextures;
+TextureMap spriteTextures;
 Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 float zBuffer[SCREEN_WIDTH];
 Uint8 timer = 0;
@@ -94,15 +95,9 @@ int main(int argc, char* argv[]){
         return 1;
     }
 
-    textureSurf = IMG_Load("./wolftextures.png");
-    if(textureSurf->format->format != SDL_PIXELFORMAT_ARGB8888){
-        textureSurf = SDL_ConvertSurfaceFormat(textureSurf, SDL_PIXELFORMAT_ARGB8888, 0);
-    }
   
-    spriteSurf = IMG_Load("./wolfsprites.png");
-    if(spriteSurf->format->format != SDL_PIXELFORMAT_ARGB8888){
-        spriteSurf = SDL_ConvertSurfaceFormat(spriteSurf, SDL_PIXELFORMAT_ARGB8888, 0);
-    }
+    wallTextures = Texture_Init("./wolftextures.png", TEX_SIZE, 1, 9, 9);
+    spriteTextures = Texture_Init("./wolfsprites.png", TEX_SIZE, 1, 4, 4);
 
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
@@ -265,22 +260,12 @@ int main(int argc, char* argv[]){
 
                 
                 if(floorRender){
-                    if(xTile < 0 || xTile >= MAPSIZE || yTile < 0 || yTile >= MAPSIZE){
-                        tileID = floorMap[xTile + MAPSIZE * yTile];
-                    }else{
-                        tileID = floorMap[xTile + MAPSIZE * yTile];
-                    }
-
-                    Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * tileID) + (textureSurf->w) * (int)texRow);
+                    tileID = floorMap[xTile + MAPSIZE * yTile];
+                    Uint32 color = Texture_Sample(&wallTextures, tileID, texCol, texRow);
                     pixels[j + SCREEN_WIDTH * i] = color;
                 }else{
-                    if(xTile < 0 || xTile >= MAPSIZE || yTile < 0 || yTile >= MAPSIZE){
-                         tileID = 0;
-                    }else{ 
-                        tileID = ceilingMap[xTile + MAPSIZE * yTile];
-                    }
-
-                    Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * tileID) + (textureSurf->w) * (int)texRow);
+                    tileID = ceilingMap[xTile + MAPSIZE * yTile];
+                    Uint32 color = Texture_Sample(&wallTextures, tileID, texCol, texRow);
                     pixels[j + SCREEN_WIDTH * i] = (color>>1) & 0x7F7F7F7F;
                 }
                 xHit += xStep;
@@ -292,137 +277,135 @@ int main(int argc, char* argv[]){
         for(Uint32 col = 0; col < SCREEN_WIDTH; col++){
             RayHit rayhit = {};
 
-            //Casting the ray
-            {
-                float camPlaneNorm = col / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
+            float camPlaneNorm = col / (SCREEN_WIDTH / 2.0) - 1; //normalize screen columns into range [-1, 1]
 
-                float xRay = player.xDir + player.xPlane * camPlaneNorm;
-                float yRay = player.yDir + player.yPlane * camPlaneNorm;
+            float xRay = player.xDir + player.xPlane * camPlaneNorm;
+            float yRay = player.yDir + player.yPlane * camPlaneNorm;
 
-                float slope = (xRay == 0) ? MAX_SLOPE : yRay / xRay;
-                float inv_slope = (yRay == 0) ? MAX_SLOPE : xRay / yRay;
+            float slope = (xRay == 0) ? MAX_SLOPE : yRay / xRay;
+            float inv_slope = (yRay == 0) ? MAX_SLOPE : xRay / yRay;
 
-                float xStep = sqrt(1 + slope * slope); 
-                float yStep = sqrt(1 + inv_slope * inv_slope);
+            float xStep = sqrt(1 + slope * slope); 
+            float yStep = sqrt(1 + inv_slope * inv_slope);
 
-                Uint32 xTile = (Uint32)player.xPos; 
-                Uint32 yTile = (Uint32)player.yPos;
+            Uint32 xTile = (Uint32)player.xPos; 
+            Uint32 yTile = (Uint32)player.yPos;
 
-                float xOffset = xTile - player.xPos + (xRay > 0);
-                float yOffset = yTile - player.yPos + (yRay > 0);
+            float xOffset = xTile - player.xPos + (xRay > 0);
+            float yOffset = yTile - player.yPos + (yRay > 0);
 
-                float xExtend = ((xOffset < 0) ? -xOffset : xOffset) * xStep;
-                float yExtend = ((yOffset < 0) ? -yOffset : yOffset) * yStep;
+            float xExtend = ((xOffset < 0) ? -xOffset : xOffset) * xStep;
+            float yExtend = ((yOffset < 0) ? -yOffset : yOffset) * yStep;
 
-                Uint8 steppingInX = 0;
+            Uint8 steppingInX = 0;
 
-                Uint8 doorFlag = 0;
-                RayHit lastHit;
-                while(1){
-                    steppingInX = (xExtend < yExtend);
+            Uint8 doorFlag = 0;
+            RayHit lastHit;
+            while(1){
+                steppingInX = (xExtend < yExtend);
 
-                    if(steppingInX) xTile += (xRay > 0) ? 1 : -1;
-                    else            yTile += (yRay > 0) ? 1 : -1;
+                if(steppingInX) xTile += (xRay > 0) ? 1 : -1;
+                else            yTile += (yRay > 0) ? 1 : -1;
 
-                    if(Map[xTile + MAPSIZE * yTile].type != WALL_NULL || doorFlag){
-                        float rayLength = (steppingInX) ? xExtend : yExtend;
-                        float rayNorm = sqrt(xRay * xRay + yRay * yRay);
+                if(Map[xTile + MAPSIZE * yTile].type != WALL_NULL || doorFlag){
+                    float rayLength = (steppingInX) ? xExtend : yExtend;
+                    float rayNorm = sqrt(xRay * xRay + yRay * yRay);
 
-                        float xFinish = xRay/rayNorm * rayLength;
-                        float yFinish = yRay/rayNorm * rayLength;
+                    float xFinish = xRay/rayNorm * rayLength;
+                    float yFinish = yRay/rayNorm * rayLength;
 
-                        rayhit = (RayHit){xRay, yRay, xFinish, yFinish, xTile, yTile, col, steppingInX};
+                    rayhit = (RayHit){xRay, yRay, xFinish, yFinish, xTile, yTile, col, steppingInX};
+                    
+                    if(Map[xTile + MAPSIZE * yTile].type == WALL_DOOR || doorFlag){
+                        if(!doorFlag){
+                            doorFlag = 1;
+                            lastHit = rayhit;
+
+                            if(steppingInX) xExtend += xStep;
+                            else            yExtend += yStep;
+
+                            continue;
+                        }
+                        doorFlag = 0;
                         
-                        if(Map[xTile + MAPSIZE * yTile].type == WALL_DOOR || doorFlag){
-                            if(!doorFlag){
-                                doorFlag = 1;
-                                lastHit = rayhit;
+                        Door* door = (Door*)Map[lastHit.xTile + MAPSIZE * lastHit.yTile].typeData;
+                        //Intersection and Ray adjust for a door
+                        {
+                            float doorDepth = door->depth; 
+                            float doorWidth = door->width; 
+                            Uint8 doorDir = door->isXAligned;
+                            int8_t doorStart = door->mapLeftAligned;
 
-                                if(steppingInX) xExtend += xStep;
-                                else            yExtend += yStep;
+                            doorDepth = (doorDir) ? ((rayhit.yRay > 0) ? doorDepth : 1 - doorDepth) : ((rayhit.xRay > 0) ? doorDepth : 1 - doorDepth);
 
-                                continue;
-                            }
-                            doorFlag = 0;
+                            float nextDepth = (doorDir) ? rayhit.yRayLength : rayhit.xRayLength;
+                            float wallStart = (doorDir) ? lastHit.yRayLength : lastHit.xRayLength;
+                            int8_t rayDir = (doorDir) ? ((rayhit.yRay > 0) ? 1 : -1) : ((rayhit.xRay > 0) ? 1 : -1);
+                            float rayDepthIntoWall = (nextDepth - wallStart) * rayDir;
+
+                            //if we only hit the adjecent wall sides
+                            if(rayDepthIntoWall < doorDepth) break;  
                             
-                            Door* door = (Door*)Map[lastHit.xTile + MAPSIZE * lastHit.yTile].typeData;
-                            //Intersection and Ray adjust for a door
-                            {
-                                float doorDepth = door->depth; 
-                                float doorWidth = door->width; 
-                                Uint8 doorDir = door->isXAligned;
-                                int8_t doorStart = door->mapLeftAligned;
-
-                                doorDepth = (doorDir) ? ((rayhit.yRay > 0) ? doorDepth : 1 - doorDepth) : ((rayhit.xRay > 0) ? doorDepth : 1 - doorDepth);
-
-                                float nextDepth = (doorDir) ? rayhit.yRayLength : rayhit.xRayLength;
-                                float wallStart = (doorDir) ? lastHit.yRayLength : lastHit.xRayLength;
-                                int8_t rayDir = (doorDir) ? ((rayhit.yRay > 0) ? 1 : -1) : ((rayhit.xRay > 0) ? 1 : -1);
-                                float rayDepthIntoWall = (nextDepth - wallStart) * rayDir;
-
-                                //if we only hit the adjecent wall sides
-                                if(rayDepthIntoWall < doorDepth) break;  
-                                
-                                //Handling the door portion
-                                if(doorDir){
-                                    if(lastHit.yTile == rayhit.yTile) rayhit.steppingInX = !rayhit.steppingInX;
-                                }else{
-                                    if(lastHit.xTile == rayhit.xTile) rayhit.steppingInX = !rayhit.steppingInX;
-                                }
-                                rayhit.xTile = lastHit.xTile;
-                                rayhit.yTile = lastHit.yTile;
-
-                                //Adjust ray to hit door
-                                float xAdjust = doorDepth * rayDir; 
-                                float yAdjust = doorDepth * rayDir;
-                                
-                                if(doorDir) xAdjust *= inv_slope;
-                                else yAdjust *= slope;
-                                
-                                rayhit.xRayLength = lastHit.xRayLength + xAdjust;
-                                rayhit.yRayLength = lastHit.yRayLength + yAdjust;
-                                
-                                //Door Width Checking
-                                float widthCheck = (doorDir) ? (rayhit.xRayLength + player.xPos) : (rayhit.yRayLength + player.yPos);
-                                widthCheck -= (int)widthCheck;
-                                if(doorStart) widthCheck = 1 - widthCheck;
-                                widthCheck -= doorWidth;
-                                if(widthCheck >= 0){
-                                    xTile = lastHit.xTile;
-                                    yTile = lastHit.yTile;
-                                    continue;
-                                }
-                            
+                            //Handling the door portion
+                            if(doorDir){
+                                if(lastHit.yTile == rayhit.yTile) rayhit.steppingInX = !rayhit.steppingInX;
+                            }else{
+                                if(lastHit.xTile == rayhit.xTile) rayhit.steppingInX = !rayhit.steppingInX;
                             }
+                            rayhit.xTile = lastHit.xTile;
+                            rayhit.yTile = lastHit.yTile;
 
-                            Uint8 isTransparent = (Map[lastHit.xTile + MAPSIZE * lastHit.yTile].texID == 8); //TODO: Find a way to encode transparency info with texture data
-                            if(isTransparent){
-                                ListAppend(&renderList, rayhit);
+                            //Adjust ray to hit door
+                            float xAdjust = doorDepth * rayDir; 
+                            float yAdjust = doorDepth * rayDir;
+                            
+                            if(doorDir) xAdjust *= inv_slope;
+                            else yAdjust *= slope;
+                            
+                            rayhit.xRayLength = lastHit.xRayLength + xAdjust;
+                            rayhit.yRayLength = lastHit.yRayLength + yAdjust;
+                            
+                            //Door Width Checking
+                            float widthCheck = (doorDir) ? (rayhit.xRayLength + player.xPos) : (rayhit.yRayLength + player.yPos);
+                            widthCheck -= (int)widthCheck;
+                            if(doorStart) widthCheck = 1 - widthCheck;
+                            widthCheck -= doorWidth;
+                            if(widthCheck >= 0){
                                 xTile = lastHit.xTile;
                                 yTile = lastHit.yTile;
                                 continue;
                             }
-                            
-                            break;
+                        
                         }
 
-
-                        Uint8 isTransparent = (Map[rayhit.xTile + MAPSIZE * rayhit.yTile].texID == 8); //TODO: Find a way to encode transparency info with texture data
+                        Uint8 isTransparent = (Map[lastHit.xTile + MAPSIZE * lastHit.yTile].texID == 8); //TODO: Find a way to encode transparency info with texture data
                         if(isTransparent){
                             ListAppend(&renderList, rayhit);
-
-                            if(steppingInX) xExtend += xStep;
-                            else            yExtend += yStep;
-                            
+                            xTile = lastHit.xTile;
+                            yTile = lastHit.yTile;
                             continue;
                         }
+                        
                         break;
                     }
 
-                    if(steppingInX) xExtend += xStep;
-                    else            yExtend += yStep;
+
+                    Uint8 isTransparent = (Map[rayhit.xTile + MAPSIZE * rayhit.yTile].texID == 8); //TODO: Find a way to encode transparency info with texture data
+                    if(isTransparent){
+                        ListAppend(&renderList, rayhit);
+
+                        if(steppingInX) xExtend += xStep;
+                        else            yExtend += yStep;
+                        
+                        continue;
+                    }
+                    break;
                 }
+
+                if(steppingInX) xExtend += xStep;
+                else            yExtend += yStep;
             }
+            
 
             ListAppend(&renderList, rayhit);
         }
@@ -449,7 +432,7 @@ int main(int argc, char* argv[]){
         
 
         //==========================================Rendering Pass==============================================================
-        Uint32 zBuffLen = (renderList.head - 1) + spriteCount; 
+        Uint32 zBuffLen = renderList.head + spriteCount; 
         void* zBufferAll[zBuffLen];
         Uint8 zBufferAllType[zBuffLen];
 
@@ -544,7 +527,7 @@ int main(int argc, char* argv[]){
 
                     float texRow = texRowStart;
                     for(int y = yStart; y < yEnd; y++){
-                        Uint32 color = *((Uint32*)spriteSurf->pixels + (int)texCol + (TEX_SIZE*sprite->spriteTextureID) + (spriteSurf->w) * (int)texRow);
+                        Uint32 color = Texture_Sample(&spriteTextures, sprite->spriteTextureID, texCol, texRow);
                         texRow += texStep;
 
                         if(!color) continue;
@@ -603,7 +586,7 @@ int main(int argc, char* argv[]){
                 texCol *= TEX_SIZE;
 
                 for(Uint16 j = drawStart; j < drawStart + wallHeight; j++){
-                    Uint32 color = *((Uint32*)textureSurf->pixels + (int)texCol + (TEX_SIZE * textureId) + (textureSurf->w) * (int)texRow);
+                    Uint32 color = Texture_Sample(&wallTextures, textureId, texCol, texRow);
 
                     if(color >> 24 < 255)
                         pixels[rayhit->column + SCREEN_WIDTH * j] = AlphaBlend(color, pixels[rayhit->column + SCREEN_WIDTH * j]);
@@ -627,11 +610,11 @@ int main(int argc, char* argv[]){
     //Exit Clean Up
     ListDestroy(&renderList);
     Map_Destroy(Map);
+    Texture_Destroy(&spriteTextures);
+    Texture_Destroy(&wallTextures);
+    SDL_DestroyTexture(screenTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    SDL_DestroyTexture(screenTexture);
-    SDL_FreeSurface(textureSurf);
-    SDL_FreeSurface(spriteSurf);
     SDL_Quit();
     return 0;
 }
