@@ -118,6 +118,7 @@ typedef struct{
 
 typedef struct{
   Uint8 spriteTextureID;
+  TextureMap* texMap;
   float xPos;
   float yPos;
   float heightAdjust;
@@ -189,17 +190,17 @@ int main(int argc, char* argv[]){
     Mouse mouse = {0, 0, 0, 0};
 
 
-    MapStruct Map = Map_Init(MAPSIZE, 1, map_template);
+    MapStruct Map = Map_Init(MAPSIZE, 1, &wallTextures, map_template);
     Map_AddDoor(&Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
     Map_AddDoor(&Map, 15, 5, MakeDoor(0.5, 0.5, 0, 1, 1));
     Map_AddMultiWall(&Map, 19, 6, MakeMultiWall(BRICK, CORRUPTED, STONE_BLUE, WOOD));
 
     const Uint32 spriteCount = 4;
     Sprite sprites[] = {
-        {1, 7.5, 3.5, 0, 1},
-        {1, 8.5, 3.5, -(1-0.45), 0.45},
-        {3, 9.5, 3.5, 0, 1},
-        {0, 16.5, 5.5, 0, 1}
+        {1, &spriteTextures, 7.5, 3.5, 0, 1},
+        {1, &spriteTextures, 8.5, 3.5, -(1-0.45), 0.45},
+        {3, &spriteTextures, 9.5, 3.5, 0, 1},
+        {0, &characterTextures, 16.5, 5.5, 0, 1}
     };
 
     Uint8 keys[6] = {0,0,0,0,0,0};
@@ -636,7 +637,7 @@ int main(int argc, char* argv[]){
 
                     float texRow = texRowStart;
                     for(int y = yStart; y < yEnd; y++){
-                        Uint32 color = Texture_Sample(&characterTextures, sprite->spriteTextureID, texCol, texRow);
+                        Uint32 color = Texture_Sample(sprite->texMap, sprite->spriteTextureID, texCol, texRow);
                         texRow += texStep;
 
                         if(!color) continue;
@@ -711,8 +712,8 @@ int main(int argc, char* argv[]){
                 texCol *= TEX_SIZE;
 
                 for(Uint16 j = drawStart; j < drawStart + wallHeight; j++){
-                    Uint32 color = Texture_Sample(&wallTextures, textureId, texCol, texRow);
-
+                    Uint32 color = Texture_Sample(rayhit->wallPiece->texMap, textureId, texCol, texRow);
+                    
                     if(color >> 24 < 255)
                         pixels[rayhit->column + SCREEN_WIDTH * j] = AlphaBlend(color, pixels[rayhit->column + SCREEN_WIDTH * j]);
                     else

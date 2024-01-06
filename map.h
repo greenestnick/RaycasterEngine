@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "TextureMap.h"
 
 #define MakeDoor(depth, width, isXAligned, mapOriginAligned, isSolid) ((Door){depth, width, isXAligned, mapOriginAligned, isSolid})
 #define MakeMultiWall(top, bottom, left, right) ((MultiWall){top, bottom, left, right})
@@ -29,6 +30,7 @@ typedef struct{
 typedef struct{
   WallType type;
   Texture texID;
+  TextureMap* texMap;
   void* typeData;
 }WallPiece;
 
@@ -39,10 +41,10 @@ typedef struct{
 }MapStruct;
 
 
-MapStruct Map_Init(Uint32 mapSize, Uint32 numLevels, const int*const mapArray){
+MapStruct Map_Init(Uint32 mapSize, Uint32 numLevels, TextureMap*const texMap, int*const mapArray){
   WallPiece* mapDataPtr = (WallPiece*)malloc(sizeof(WallPiece) * mapSize * mapSize * numLevels);
   for(Uint32 i = 0; i < mapSize * mapSize * numLevels; i++){
-    mapDataPtr[i] = (WallPiece){(mapArray[i] > 0), mapArray[i], NULL};
+    mapDataPtr[i] = (WallPiece){(mapArray[i] > 0), mapArray[i], texMap, NULL};
   }
 
   return (MapStruct){mapSize, numLevels, mapDataPtr};
