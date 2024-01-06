@@ -3,12 +3,15 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include "map.h"
 
 typedef struct{
     float xRayLength;
     float yRayLength;
-    Uint32 xTile;
-    Uint32 yTile;
+    //float perpDist;
+    //float texColStart;
+    WallPiece* wallPiece;
+    //Texture tex
     Uint32 column;
     Uint8 steppingInX;
 }RayHit;

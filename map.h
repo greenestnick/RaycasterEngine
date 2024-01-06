@@ -7,7 +7,7 @@
 #define MakeDoor(depth, width, isXAligned, mapOriginAligned, isSolid) ((Door){depth, width, isXAligned, mapOriginAligned, isSolid})
 #define MakeMultiWall(top, bottom, left, right) ((MultiWall){top, bottom, left, right})
 
-typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE} Texture;
+typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE, TRANSPARENT} Texture;
 typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR, WALL_MULTI} WallType;
 
 typedef struct{
@@ -18,6 +18,7 @@ typedef struct{
     uint8_t isSolid;
 }Door;
 
+//TODO: Ensure no transparent texture is used for multiwalls
 typedef struct{
   Texture top;
   Texture bottom;

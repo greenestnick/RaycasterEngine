@@ -13,7 +13,7 @@
 #define TEX_SIZE 32
 #define MAPSIZE 24
 #define UPDATE_TIMER_MS 16 //about 60 ticks per second
-
+#define FPS_DISPLAY
 
 int map_template[MAPSIZE * MAPSIZE * 2] =
 {
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]){
 
     MapStruct Map = Map_Init(MAPSIZE, 1, map_template);
     Map_AddDoor(&Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
-    Map_AddDoor(&Map, 15, 5, MakeDoor(0.5, 1, 0, 0, 1));
+    Map_AddDoor(&Map, 15, 5, MakeDoor(0.5, 0.5, 0, 1, 1));
     Map_AddMultiWall(&Map, 19, 6, MakeMultiWall(BRICK, CORRUPTED, STONE_BLUE, WOOD));
 
     const Uint32 spriteCount = 4;
@@ -211,12 +211,14 @@ int main(int argc, char* argv[]){
     while(running){
         
         //=============================FPS Counter=================================
+        #ifdef FPS_DISPLAY
         frameCounter++;
         if(SDL_GetTicks() - fps_last >= 250){
             printf("FPS: %f\n", (float)frameCounter/250.0 * 1000.0);
             frameCounter = 0;
             fps_last = SDL_GetTicks();
         }
+        #endif
         
 
         //===========================================Event Handling=================================================================
@@ -385,13 +387,16 @@ int main(int argc, char* argv[]){
 
             Uint8 doorFlag = 0;
             RayHit lastHit;
+            Uint32 xLastTile, yLastTile;
+
             while(1){
                 steppingInX = (xExtend < yExtend);
 
                 if(steppingInX) xTile += (xRay > 0) ? 1 : -1;
                 else            yTile += (yRay > 0) ? 1 : -1;
 
-                if(Map_GetWall(&Map, xTile, yTile, 0)->type != WALL_NULL || doorFlag){
+                WallPiece* wallHit = Map_GetWall(&Map, xTile, yTile, 0);
+                if(wallHit->type != WALL_NULL || doorFlag){
                     
                     float rayLength = (steppingInX) ? xExtend : yExtend;
                     float rayNorm = sqrt(xRay * xRay + yRay * yRay);
@@ -399,12 +404,15 @@ int main(int argc, char* argv[]){
                     float xFinish = xRay/rayNorm * rayLength;
                     float yFinish = yRay/rayNorm * rayLength;
 
-                    rayhit = (RayHit){xFinish, yFinish, xTile, yTile, col, steppingInX};
+                    //float perpDist = 
+                    rayhit = (RayHit){xFinish, yFinish, wallHit, col, steppingInX};
                     
-                    if(Map_GetWall(&Map, xTile, yTile, 0)->type == WALL_DOOR || doorFlag){
+                    if(wallHit->type == WALL_DOOR || doorFlag){
                         if(!doorFlag){
                             doorFlag = 1;
                             lastHit = rayhit;
+                            xLastTile = xTile;
+                            yLastTile = yTile;
 
                             if(steppingInX) xExtend += xStep;
                             else            yExtend += yStep;
@@ -413,10 +421,10 @@ int main(int argc, char* argv[]){
                         }
                         doorFlag = 0;
                         
-                        Door* door = (Door*)Map_GetWall(&Map, lastHit.xTile, lastHit.yTile, 0)->typeData;
                         
                         //Intersection and Ray adjust for a door
                         {
+                            Door* door = (Door*)lastHit.wallPiece->typeData;
                             float doorDepth = door->depth; 
                             float doorWidth = door->width; 
                             Uint8 doorDir = door->isXAligned;
@@ -434,12 +442,12 @@ int main(int argc, char* argv[]){
                             
                             //Handling the door portion
                             if(doorDir){
-                                if(lastHit.yTile == rayhit.yTile) rayhit.steppingInX = !rayhit.steppingInX;
+                                if(yLastTile == yTile) rayhit.steppingInX = !rayhit.steppingInX;
                             }else{
-                                if(lastHit.xTile == rayhit.xTile) rayhit.steppingInX = !rayhit.steppingInX;
+                                if(xLastTile == xTile) rayhit.steppingInX = !rayhit.steppingInX;
                             }
-                            rayhit.xTile = lastHit.xTile;
-                            rayhit.yTile = lastHit.yTile;
+                            rayhit.wallPiece = Map_GetWall(&Map, xLastTile, yLastTile, 0);
+
 
                             //Adjust ray to hit door
                             float xAdjust = doorDepth * rayDir; 
@@ -457,25 +465,25 @@ int main(int argc, char* argv[]){
                             if(doorStart) widthCheck = 1 - widthCheck;
                             widthCheck -= doorWidth;
                             if(widthCheck >= 0){
-                                xTile = lastHit.xTile;
-                                yTile = lastHit.yTile;
+                                xTile = xLastTile;
+                                yTile = yLastTile;
                                 continue;
                             }
                         
                         }
                         
-                        Uint8 isTransparent = (Map_GetWall(&Map, lastHit.xTile, lastHit.yTile, 0)->texID == 8); //TODO: Find a way to encode transparency info with texture data
+                        Uint8 isTransparent = (lastHit.wallPiece->texID == 8); //TODO: Find a way to encode transparency info with texture data
                         if(isTransparent){
                             ListAppend(&renderList, rayhit);
-                            xTile = lastHit.xTile;
-                            yTile = lastHit.yTile;
+                            xTile = xLastTile;
+                            yTile = yLastTile;
                             continue;
                         }
                         
                         break;
                     }
 
-                    Uint8 isTransparent = (Map_GetWall(&Map, rayhit.xTile, rayhit.yTile, 0)->texID == 8); //TODO: Find a way to encode transparency info with texture data
+                    Uint8 isTransparent = (rayhit.wallPiece->texID == 8); //TODO: Find a way to encode transparency info with texture data
                     if(isTransparent){
                         ListAppend(&renderList, rayhit);
 
@@ -484,6 +492,20 @@ int main(int argc, char* argv[]){
                         
                         continue;
                     }
+
+                    //Setting texture for multiwalls
+                    /*
+                    if(wallHit->type == WALL_MULTI){
+                        if(steppingInX){
+                           MultiWall* mwall = (MultiWall*)wallHit->typeData;
+                           //rayhit.texture = (xRay > 0) ? mwall->left : mwall->right;
+                        }else{
+                            MultiWall* mwall = (MultiWall*)wallHit->typeData;
+                           //rayhit.texture = (yRay > 0) ? mwall->top : mwall->bottom;
+                        }
+                    }
+                    */
+
                     break;
                 }
 
@@ -614,7 +636,7 @@ int main(int argc, char* argv[]){
 
                     float texRow = texRowStart;
                     for(int y = yStart; y < yEnd; y++){
-                        Uint32 color = Texture_Sample(&spriteTextures, sprite->spriteTextureID, texCol, texRow);
+                        Uint32 color = Texture_Sample(&characterTextures, sprite->spriteTextureID, texCol, texRow);
                         texRow += texStep;
 
                         if(!color) continue;
@@ -627,30 +649,33 @@ int main(int argc, char* argv[]){
                 }
             }else{
                 RayHit* rayhit = (RayHit*)zBufferAll[i];
-                Uint8 level = 0;
-                WallPiece* wallPiece = Map_GetWall(&Map, rayhit->xTile, rayhit->yTile, level);
-                if(wallPiece->type == WALL_NULL) continue;
+
+                //if(rayhit->wallPiece->type == WALL_NULL) continue;
+
+                Uint32 textureId = rayhit->wallPiece->texID;
                 
-                Uint8 textureId = wallPiece->texID;
-                if(wallPiece->type == WALL_MULTI){
+                
+                if(rayhit->wallPiece->type == WALL_MULTI){
                     if(rayhit->steppingInX){
-                        MultiWall* mwall = (MultiWall*)wallPiece->typeData;
+                        MultiWall* mwall = (MultiWall*)rayhit->wallPiece->typeData;
                         textureId = (rayhit->xRayLength > 0) ?  mwall->left : mwall->right;
                     }else{
-                        MultiWall* mwall = (MultiWall*)wallPiece->typeData;
+                        MultiWall* mwall = (MultiWall*)rayhit->wallPiece->typeData;
                         textureId = (rayhit->yRayLength > 0) ?  mwall->top : mwall->bottom;
                     }
                 }
+                
+                
 
 
                 Uint8 transparencyColFlag = 0;
-                float perpDist =player.xDir * rayhit->xRayLength +player.yDir * rayhit->yRayLength;
+                float perpDist = player.xDir * rayhit->xRayLength + player.yDir * rayhit->yRayLength;
                 zBuffer[rayhit->column] = perpDist;
                 float wallHeight = (float)SCREEN_HEIGHT / perpDist;
             
             
-                int drawStart = (SCREEN_HEIGHT - wallHeight) / 2 +player.pitch;
-                drawStart -= wallHeight * level;// * i; TODO: Place higher levels of map here, must pass in
+                int drawStart = (SCREEN_HEIGHT - wallHeight) / 2 + player.pitch;
+                //drawStart -= wallHeight * level;// * i; TODO: Place higher levels of map here, must pass in
                 
                 float texRow = 0;
                 float texRowStep = TEX_SIZE;
@@ -674,14 +699,15 @@ int main(int argc, char* argv[]){
                 texCol -= (int)texCol; //only get the decimal part
 
                 //Door moving texture offset
-                if(wallPiece->type == WALL_DOOR){
-                    Door* door = ((Door*)wallPiece->typeData);
+                if(rayhit->wallPiece->type == WALL_DOOR){
+                    Door* door = ((Door*)rayhit->wallPiece->typeData);
                     if(!door->mapOriginAligned){
-                        texCol += 1 - ((Door*)wallPiece->typeData)->width;
+                        texCol += 1 - ((Door*)rayhit->wallPiece->typeData)->width;
                     }else{
-                        texCol += ((Door*)wallPiece->typeData)->width;
+                        texCol += ((Door*)rayhit->wallPiece->typeData)->width;
                     }
                 }
+                
                 texCol *= TEX_SIZE;
 
                 for(Uint16 j = drawStart; j < drawStart + wallHeight; j++){
