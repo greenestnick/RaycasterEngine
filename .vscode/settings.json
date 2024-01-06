@@ -5,6 +5,7 @@
         "stdint.h": "c",
         "stdint-gcc.h": "c",
         "stdio.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "sdl_image.h": "c"
     },
 }
