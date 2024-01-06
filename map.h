@@ -4,143 +4,82 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef uint8_t Uint8;
+#define MakeDoor(depth, width, isXAligned, mapOriginAligned, isSolid) ((Door){depth, width, isXAligned, mapOriginAligned, isSolid})
+#define MakeMultiWall(top, bottom, left, right) ((MultiWall){top, bottom, left, right})
 
 typedef enum {BRICK_FLAG, BRICK, CORRUPTED, STONE, STONE_BLUE, STONE_MOSS, WOOD, COBBLE} Texture;
-typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR} WallType;
-#define MAPSIZE 24
-
-//TODO: Tensor for storing multiple levels, some sort of level editor. May require multiple raycasts if the levels are different enough
+typedef enum {WALL_NULL, WALL_TYPE, WALL_DOOR, WALL_MULTI} WallType;
 
 typedef struct{
-    float depth; //using map axis for directions
+    float depth; //in positive x/y dir
     float width;
-    Uint8 isXAligned;
-    Uint8 mapLeftAligned;
-    Uint8 isSolid;
+    uint8_t isXAligned;
+    uint8_t mapOriginAligned;
+    uint8_t isSolid;
 }Door;
+
+typedef struct{
+  Texture top;
+  Texture bottom;
+  Texture left;
+  Texture right;
+}MultiWall;
 
 typedef struct{
   WallType type;
   Texture texID;
-  Door* door;
+  void* typeData;
 }WallPiece;
 
-
-#define Map_isWall(Map, x, y) (Map[x + MAPSIZE * y].type == WALL_NULL)
-#define Map_ModifyWall(Map, x, y, wall) (Map[x + MAPSIZE * y] = wall)
-#define MakeDoor(depth, width, isXAligned, mapLeftAligned, isSolid) ((Door){depth, width, isXAligned, mapLeftAligned, isSolid})
-
-#define SetDoorStruct(mapDoor, setDoor) \
-  mapDoor->depth = setDoor.depth;\
-  mapDoor->width = setDoor.width;\
-  mapDoor->isXAligned = setDoor.isXAligned;\
-  mapDoor->mapLeftAligned = setDoor.mapLeftAligned;\
-  mapDoor->isSolid = setDoor.isSolid
+typedef struct{
+  Uint32 size;
+  Uint32 levels; 
+  WallPiece* mapData;
+}MapStruct;
 
 
-void Map_Init(WallPiece map[MAPSIZE * MAPSIZE], int userMap[MAPSIZE * MAPSIZE]){
-  for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
-    map[i] = (WallPiece){(userMap[i] > 0), userMap[i], NULL};
+MapStruct Map_Init(Uint32 mapSize, Uint32 numLevels, const int*const mapArray){
+  WallPiece* mapDataPtr = (WallPiece*)malloc(sizeof(WallPiece) * mapSize * mapSize * numLevels);
+  for(Uint32 i = 0; i < mapSize * mapSize * numLevels; i++){
+    mapDataPtr[i] = (WallPiece){(mapArray[i] > 0), mapArray[i], NULL};
   }
+
+  return (MapStruct){mapSize, numLevels, mapDataPtr};
 }
 
-void Map_Destroy(WallPiece map[MAPSIZE * MAPSIZE]){
-  for(Uint32 i = 0; i < MAPSIZE * MAPSIZE; i++){
-    if(map[i].door != NULL) free(map[i].door);
+WallPiece* Map_GetWall(MapStruct*const map, Uint32 x, Uint32 y, Uint32 z){
+  return map->mapData + x + map->size*y + (map->size*map->size)*z;
+}
+
+void Map_Destroy(MapStruct* const map){
+  WallPiece* mapData = map->mapData;
+  for(Uint32 i = 0; i < map->size * map->size; i++){
+    if(mapData[i].typeData != NULL) free(mapData[i].typeData);
   }
+
+  if(map->mapData != NULL) free(map->mapData);
+  
 }
 
-void Map_AddDoor(WallPiece map[MAPSIZE * MAPSIZE], Uint32 x, Uint32 y, Door door){
-  map[x + MAPSIZE * y].type = WALL_DOOR;
-  map[x + MAPSIZE * y].door = (Door*)malloc(sizeof(Door));
-  SetDoorStruct(map[x + MAPSIZE * y].door, door);
+void Map_AddDoor(MapStruct*const map, Uint32 x, Uint32 y, Door door){
+  map->mapData[x + map->size * y].type = WALL_DOOR;
+  map->mapData[x + map->size * y].typeData = (Door*)malloc(sizeof(Door));
+  Door* doorPtr = (Door*) map->mapData[x + map->size * y].typeData;
+  doorPtr->depth = door.depth;
+  doorPtr->width = door.width;
+  doorPtr->isXAligned = door.isXAligned;
+  doorPtr->mapOriginAligned = door.mapOriginAligned;
+  doorPtr->isSolid = door.isSolid;
 }
 
-
-
-int map[MAPSIZE * MAPSIZE] =
-{
-  1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,2,2,2,2,2,0,0,0,0,3,6,3,0,3,0,0,0,1,
-  1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,5,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,3,0,0,0,3,0,0,0,1,
-  1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,2,2,0,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,0,4,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,0,0,0,0,5,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,0,4,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-  1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-};
-
-int ceilingMap[MAPSIZE * MAPSIZE] =
-{
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-  6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6
-};
-
-int floorMap[MAPSIZE * MAPSIZE] =
-{
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-  3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3
-};
+void Map_AddMultiWall(MapStruct*const map, Uint32 x, Uint32 y, MultiWall wall){
+  map->mapData[x + map->size * y].type = WALL_MULTI;
+  map->mapData[x + map->size * y].typeData = (MultiWall**)malloc(sizeof(MultiWall));
+  MultiWall* wallPtr = (MultiWall*) map->mapData[x + map->size * y].typeData;
+  wallPtr->top = wall.top;
+  wallPtr->bottom = wall.bottom;
+  wallPtr->left = wall.left;
+  wallPtr->right = wall.right;
+}
 
 #endif
