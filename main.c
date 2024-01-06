@@ -180,6 +180,7 @@ int main(int argc, char* argv[]){
 
     TextureMap wallTextures = Texture_Init("./wolftextures.png", TEX_SIZE, 1, 9, 9);
     TextureMap spriteTextures = Texture_Init("./wolfsprites.png", TEX_SIZE, 1, 4, 4);
+    TextureMap characterTextures = Texture_Init("./character_spritesheet.png", TEX_SIZE, 5, 8, 40);
 
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
@@ -245,6 +246,7 @@ int main(int argc, char* argv[]){
             }else if(event.type == SDL_MOUSEMOTION){
                 int xNew = 0, yNew = 0;
                 SDL_GetMouseState(&xNew, &yNew);
+                
                 mouse.xVel = xNew - mouse.x;
                 mouse.yVel = yNew - mouse.y;
                 mouse.x = xNew;
@@ -530,6 +532,8 @@ int main(int argc, char* argv[]){
             zBufferAllType[ii] = 1; 
         }
 
+        
+        //TODO: Sorting is slow, maybe just create sorted list as we go and merge ray/sprite sorted lists together
         //Sorting ZBuffer (BubbleSort)
         for(Uint32 i = 0; i < zBuffLen; i++){
             for(Uint32 j = 1; j < zBuffLen; j++){
@@ -693,7 +697,7 @@ int main(int argc, char* argv[]){
             
             }
         }
-    
+
         SDL_UpdateTexture(screenTexture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
         SDL_RenderPresent(renderer);
@@ -706,6 +710,7 @@ int main(int argc, char* argv[]){
     Map_Destroy(&Map);
     Texture_Destroy(&spriteTextures);
     Texture_Destroy(&wallTextures);
+    Texture_Destroy(&characterTextures);
     SDL_DestroyTexture(screenTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

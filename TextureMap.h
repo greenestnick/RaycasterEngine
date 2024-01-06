@@ -28,7 +28,7 @@ void Texture_Destroy(TextureMap* texMap){
 }
 
 Uint32 Texture_DirectSample(const TextureMap*const  texMap, Uint32 x, Uint32 y, Uint32 u, Uint32 v){
-    Uint32* sample = (Uint32*)texMap->surface->pixels + (x * texMap->texSize) + (texMap->surface->w * y) + u + (texMap->surface->w * v);
+    Uint32* sample = (Uint32*)texMap->surface->pixels + (x * texMap->texSize) + (texMap->texSize *  texMap->surface->w * y) + u + (texMap->surface->w * v);
     return *sample;
 }
 
@@ -36,7 +36,7 @@ Uint32 Texture_Sample(const TextureMap*const texMap, Uint32 texNum, Uint32 u, Ui
     Uint32 x = texNum % texMap->cols;
     Uint32 y = ((float)texNum / texMap->cols);
 
-    Uint32* sample = (Uint32*)texMap->surface->pixels + (x * texMap->texSize) + (texMap->surface->w * y) + u + (texMap->surface->w * v);
+    Uint32* sample = (Uint32*)texMap->surface->pixels + (x * texMap->texSize) + (texMap->texSize *  texMap->surface->w * y) + u + (texMap->surface->w * v);
     return *sample;
 }
 
