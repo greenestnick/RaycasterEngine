@@ -4,6 +4,7 @@
 #include "map.h"
 #include "RenderList.h"
 #include "TextureMap.h"
+#include "FixedSizeArena.h"
 
 #define SCREEN_WIDTH 711
 #define SCREEN_HEIGHT 400
@@ -110,13 +111,6 @@ typedef struct{
 }Player;
 
 typedef struct{
-  Uint32 x;
-  Uint32 y;
-  int xVel;
-  int yVel;
-}Mouse;
-
-typedef struct{
   Uint8 spriteTextureID;
   TextureMap* texMap;
   float xPos;
@@ -126,6 +120,14 @@ typedef struct{
   float xCamPos;
   float yCamPos;
 }Sprite;
+
+typedef struct{
+    float* pos;
+    float* camPos;
+    float* heightAdjust;
+    float* scale;
+    //Texture refs 
+}SpritesSOA;
 
 
 Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
@@ -187,8 +189,7 @@ int main(int argc, char* argv[]){
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
     
     Player player = {17.5, 1.5, 0.707, 0.707, -0.707, 0.707, 0};
-    Mouse mouse = {0, 0, 0, 0};
-
+    Uint32 xMouseOld = SCREEN_WIDTH/2;
 
     MapStruct Map = Map_Init(MAPSIZE, 1, &wallTextures, map_template);
     Map_AddDoor(&Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
@@ -249,22 +250,21 @@ int main(int argc, char* argv[]){
             }else if(event.type == SDL_MOUSEMOTION){
                 int xNew = 0, yNew = 0;
                 SDL_GetMouseState(&xNew, &yNew);
-                
-                mouse.xVel = xNew - mouse.x;
-                mouse.yVel = yNew - mouse.y;
-                mouse.x = xNew;
-                mouse.y = yNew;
 
                 float oldDirX = player.xDir;
-                float angVel = 3.14 * mouse.xVel/(SCREEN_WIDTH / 2.0);
-                mouse.xVel = 0;
+                float angVel = 3.14 * (xNew - (int)xMouseOld)/(SCREEN_WIDTH / 2.0);
+                xMouseOld = xNew;
                 player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
                 player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
+                player.xPlane = -player.yDir;
+                player.yPlane = player.xDir;
 
-                player.pitch = SCREEN_HEIGHT/2.0 - mouse.y;
+                player.pitch = SCREEN_HEIGHT/2.0 - yNew;
             }
             if(event.window.event == SDL_WINDOWEVENT_ENTER){
-                SDL_GetMouseState(&mouse.x, NULL);
+                Uint32 xNew;
+                SDL_GetMouseState(&xNew, NULL);
+                xMouseOld = xNew;
             }
             
         }
@@ -273,33 +273,37 @@ int main(int argc, char* argv[]){
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
             timer+=1;
+
             ((Door*)Map_GetWall(&Map,16, 4, 0)->typeData)->width = timer/255.0;
             Map_GetWall(&Map,16, 4, 0)->texID = (Uint8)(timer/255.0 * 7);
 
-            if(keys[0] || keys[2]){
-                float xNew =  player.xPos + player.xDir/5 * (keys[0] - keys[2]);
-                float yNew = player.yPos + player.yDir/5 * (keys[0] - keys[2]);
-                if(Map_GetWall(&Map, xNew, yNew, 0)->type == WALL_NULL){
-                    player.xPos += player.xDir/15 * (keys[0] - keys[2]);   
-                    player.yPos += player.yDir/15 * (keys[0] - keys[2]);
+            //=============Move Player==========================
+            {
+                if(keys[0] || keys[2]){
+                    float xNew =  player.xPos + player.xDir/5 * (keys[0] - keys[2]);
+                    float yNew = player.yPos + player.yDir/5 * (keys[0] - keys[2]);
+                    if(Map_GetWall(&Map, xNew, yNew, 0)->type == WALL_NULL){
+                        player.xPos += player.xDir/15 * (keys[0] - keys[2]);   
+                        player.yPos += player.yDir/15 * (keys[0] - keys[2]);
+                    }
+                }else{
+                    float xNew = player.xPos - player.yDir/5 * (keys[3] - keys[1]);   
+                    float yNew = player.yPos + player.xDir/5 * (keys[3] - keys[1]);
+                    if(Map_GetWall(&Map, xNew, yNew, 0)->type == WALL_NULL){
+                        player.xPos -= player.yDir/15 * (keys[3] - keys[1]);   
+                        player.yPos += player.xDir/15 * (keys[3] - keys[1]);
+                    }
                 }
-            }else{
-                float xNew = player.xPos - player.yDir/5 * (keys[3] - keys[1]);   
-                float yNew = player.yPos + player.xDir/5 * (keys[3] - keys[1]);
-                if(Map_GetWall(&Map, xNew, yNew, 0)->type == WALL_NULL){
-                    player.xPos -= player.yDir/15 * (keys[3] - keys[1]);   
-                    player.yPos += player.xDir/15 * (keys[3] - keys[1]);
-                }
+
+                //TODO: Remove one day
+                float oldDirX = player.xDir;
+                float angVel = 0.05 * (keys[5] - keys[4]);
+                player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
+                player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
+
+                player.xPlane = -player.yDir;
+                player.yPlane = player.xDir;
             }
-
-
-            float oldDirX = player.xDir;
-            float angVel = 0.05 * (keys[5] - keys[4]);
-            player.xDir = cos(angVel) * player.xDir - sin(angVel) * player.yDir;
-            player.yDir = sin(angVel) * oldDirX + cos(angVel) * player.yDir;
-
-            player.xPlane = -player.yDir;
-            player.yPlane = player.xDir;
         }
 
         //Rendering
@@ -310,6 +314,7 @@ int main(int argc, char* argv[]){
         
 
         //=========================================Rendering floor/ceiling===================================================
+        //Could split into two loops to avoid the floorRender branching, that being said the branch prediction should help
         for(Uint32 i = 0; i < SCREEN_HEIGHT; i++){
             Uint8 floorRender = (i > (float)(SCREEN_HEIGHT >> 1) + player.pitch);
             
@@ -424,8 +429,8 @@ int main(int argc, char* argv[]){
                         
                         
                         //Intersection and Ray adjust for a door
+                        Door* door = (Door*)lastHit.wallPiece->typeData;
                         {
-                            Door* door = (Door*)lastHit.wallPiece->typeData;
                             float doorDepth = door->depth; 
                             float doorWidth = door->width; 
                             Uint8 doorDir = door->isXAligned;
@@ -488,7 +493,7 @@ int main(int argc, char* argv[]){
                     Uint8 isTransparent = (rayhit.wallPiece->texID == 8); //TODO: Find a way to encode transparency info with texture data
                     if(isTransparent){
                         ListAppend(&renderList, rayhit);
-
+                        
                         if(steppingInX) xExtend += xStep;
                         else            yExtend += yStep;
                         
@@ -588,6 +593,7 @@ int main(int argc, char* argv[]){
             }
         }
         
+
         //Render zBuffer
         for(Uint32 i = 0; i < zBuffLen; i++){
             if(zBufferAllType[i]){
@@ -722,7 +728,8 @@ int main(int argc, char* argv[]){
             
             }
         }
-
+        
+        
         SDL_UpdateTexture(screenTexture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
         SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
         SDL_RenderPresent(renderer);
@@ -733,9 +740,11 @@ int main(int argc, char* argv[]){
     //Exit Clean Up
     ListDestroy(&renderList);
     Map_Destroy(&Map);
+
     Texture_Destroy(&spriteTextures);
     Texture_Destroy(&wallTextures);
     Texture_Destroy(&characterTextures);
+
     SDL_DestroyTexture(screenTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

@@ -14,11 +14,11 @@ typedef struct{
 
 /*
 typedef struct{
-    Uint8 row;
-    Uint8 col;
-    TextureMap* map;
+    Uint8 texID;
+    TextureMap* texMap;
 }Texture;
 */
+
 
 TextureMap Texture_Init(char* path, Uint8 texSize, Uint8 rows, Uint8 cols, Uint32 numTextures){
     SDL_Surface* surf = IMG_Load(path);
@@ -46,5 +46,17 @@ Uint32 Texture_Sample(const TextureMap*const texMap, Uint32 texNum, Uint32 u, Ui
     Uint32* sample = (Uint32*)texMap->surface->pixels + (x * texMap->texSize) + (texMap->texSize *  texMap->surface->w * y) + u + (texMap->surface->w * v);
     return *sample;
 }
+
+/*
+Uint32 Texture_SampleRef(const Texture*const tex, Uint32 u, Uint32 v){
+    TextureMap* texMap = tex->texMap;
+
+    Uint32 x = tex->texID % texMap->cols;
+    Uint32 y = ((float)tex->texID / texMap->cols);
+
+    Uint32* sample = (Uint32*)texMap->surface->pixels + (x * texMap->texSize) + (texMap->texSize *  texMap->surface->w * y) + u + (texMap->surface->w * v);
+    return *sample;
+}
+*/
 
 #endif
