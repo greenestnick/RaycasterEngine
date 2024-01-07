@@ -3,7 +3,6 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-#include "RenderItem.h"
 #include "map.h"
 
 typedef struct{

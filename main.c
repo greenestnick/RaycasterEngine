@@ -179,9 +179,9 @@ int main(int argc, char* argv[]){
         return 1;
     }
 
-    TextureMap wallTextures = Texture_Init("./wolftextures.png", TEX_SIZE, 1, 9, 9);
-    TextureMap spriteTextures = Texture_Init("./wolfsprites.png", TEX_SIZE, 1, 4, 4);
-    TextureMap characterTextures = Texture_Init("./character_spritesheet.png", TEX_SIZE, 5, 8, 40);
+    TextureMap wallTextures = Texture_Init("./Textures/wolftextures.png", TEX_SIZE, 1, 9, 9);
+    TextureMap spriteTextures = Texture_Init("./Textures/wolfsprites.png", TEX_SIZE, 1, 4, 4);
+    TextureMap characterTextures = Texture_Init("./Textures/character_spritesheet.png", TEX_SIZE, 5, 8, 40);
 
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
