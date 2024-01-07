@@ -12,13 +12,13 @@ typedef struct{
     SDL_Surface* surface;
 }TextureMap;
 
-/*
+
 typedef struct{
     Uint8 texID;
     TextureMap* texMap;
 }Texture;
-*/
 
+#define Texture_Make(texId, texMapPtr) (Texture){texId, texMapPtr}
 
 TextureMap Texture_Init(char* path, Uint8 texSize, Uint8 rows, Uint8 cols, Uint32 numTextures){
     SDL_Surface* surf = IMG_Load(path);

@@ -111,8 +111,7 @@ typedef struct{
 }Player;
 
 typedef struct{
-  Uint8 spriteTextureID;
-  TextureMap* texMap;
+  Texture tex;
   float xPos;
   float yPos;
   float heightAdjust;
@@ -194,14 +193,14 @@ int main(int argc, char* argv[]){
     MapStruct Map = Map_Init(MAPSIZE, 1, &wallTextures, map_template);
     Map_AddDoor(&Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
     Map_AddDoor(&Map, 15, 5, MakeDoor(0.5, 0.5, 0, 1, 1));
-    Map_AddMultiWall(&Map, 19, 6, MakeMultiWall(BRICK, CORRUPTED, STONE_BLUE, WOOD));
+    Map_AddMultiWall(&Map, 19, 6, MakeMultiWall(Texture_Make(1, &wallTextures), Texture_Make(2, &wallTextures), Texture_Make(5, &wallTextures), Texture_Make(6, &wallTextures)));
 
     const Uint32 spriteCount = 4;
     Sprite sprites[] = {
-        {1, &spriteTextures, 7.5, 3.5, 0, 1},
-        {1, &spriteTextures, 8.5, 3.5, -(1-0.45), 0.45},
-        {3, &spriteTextures, 9.5, 3.5, 0, 1},
-        {0, &characterTextures, 16.5, 5.5, 0, 1}
+        {Texture_Make(1, &spriteTextures), 7.5, 3.5, 0, 1},
+        {Texture_Make(1, &spriteTextures), 8.5, 3.5, -(1-0.45), 0.45},
+        {Texture_Make(3, &spriteTextures), 9.5, 3.5, 0, 1},
+        {Texture_Make(0, &characterTextures), 16.5, 5.5, 0, 1}
     };
 
     Uint8 keys[6] = {0,0,0,0,0,0};
@@ -275,7 +274,7 @@ int main(int argc, char* argv[]){
             timer+=1;
 
             ((Door*)Map_GetWall(&Map,16, 4, 0)->typeData)->width = timer/255.0;
-            Map_GetWall(&Map,16, 4, 0)->texID = (Uint8)(timer/255.0 * 7);
+            Map_GetWall(&Map,16, 4, 0)->tex.texID = (Uint8)(timer/255.0 * 7);
 
             //=============Move Player==========================
             {
@@ -478,7 +477,7 @@ int main(int argc, char* argv[]){
                         
                         }
                         
-                        Uint8 isTransparent = (lastHit.wallPiece->texID == 8); //TODO: Find a way to encode transparency info with texture data
+                        Uint8 isTransparent = (lastHit.wallPiece->tex.texID == 8); //TODO: Find a way to encode transparency info with texture data
                         if(isTransparent){
                             ListAppend(&renderList, rayhit);
                             
@@ -490,7 +489,7 @@ int main(int argc, char* argv[]){
                         break;
                     }
 
-                    Uint8 isTransparent = (rayhit.wallPiece->texID == 8); //TODO: Find a way to encode transparency info with texture data
+                    Uint8 isTransparent = (rayhit.wallPiece->tex.texID == 8); //TODO: Find a way to encode transparency info with texture data
                     if(isTransparent){
                         ListAppend(&renderList, rayhit);
                         
@@ -641,7 +640,7 @@ int main(int argc, char* argv[]){
 
                     float texRow = texRowStart;
                     for(int y = yStart; y < yEnd; y++){
-                        Uint32 color = Texture_Sample(sprite->texMap, sprite->spriteTextureID, texCol, texRow);
+                        Uint32 color = Texture_Sample(sprite->tex.texMap, sprite->tex.texID, texCol, texRow);
                         texRow += texStep;
 
                         if(!color) continue;
@@ -657,16 +656,14 @@ int main(int argc, char* argv[]){
 
                 //if(rayhit->wallPiece->type == WALL_NULL) continue;
 
-                Uint32 textureId = rayhit->wallPiece->texID;
-                
-                
+                Uint8 textureId = rayhit->wallPiece->tex.texID;    
                 if(rayhit->wallPiece->type == WALL_MULTI){
                     if(rayhit->steppingInX){
                         MultiWall* mwall = (MultiWall*)rayhit->wallPiece->typeData;
-                        textureId = (rayhit->xRayLength > 0) ?  mwall->left : mwall->right;
+                        textureId = (rayhit->xRayLength > 0) ?  mwall->left.texID : mwall->right.texID;
                     }else{
                         MultiWall* mwall = (MultiWall*)rayhit->wallPiece->typeData;
-                        textureId = (rayhit->yRayLength > 0) ?  mwall->top : mwall->bottom;
+                        textureId = (rayhit->yRayLength > 0) ?  mwall->top.texID : mwall->bottom.texID;
                     }
                 }
                 
@@ -716,7 +713,7 @@ int main(int argc, char* argv[]){
                 texCol *= TEX_SIZE;
 
                 for(Uint16 j = drawStart; j < drawStart + wallHeight; j++){
-                    Uint32 color = Texture_Sample(rayhit->wallPiece->texMap, textureId, texCol, texRow);
+                    Uint32 color = Texture_Sample(rayhit->wallPiece->tex.texMap, textureId, texCol, texRow);
                     
                     if(color >> 24 < 255)
                         pixels[rayhit->column + SCREEN_WIDTH * j] = AlphaBlend(color, pixels[rayhit->column + SCREEN_WIDTH * j]);
