@@ -1,7 +1,7 @@
 main: main.o
 	gcc -o MAIN main.o -lm -lSDL2 -lSDL2_image
 
-main.o: main.c map.h RenderList.h TextureMap.h
+main.o: main.c map.h RenderList.h TextureMap.h RenderItem.h RenderItemList.h
 	gcc -c main.c
 
 clean:

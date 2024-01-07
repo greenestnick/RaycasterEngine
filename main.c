@@ -476,6 +476,7 @@ int main(int argc, char* argv[]){
                         Uint8 isTransparent = (lastHit.wallPiece->texID == 8); //TODO: Find a way to encode transparency info with texture data
                         if(isTransparent){
                             ListAppend(&renderList, rayhit);
+                            
                             xTile = xLastTile;
                             yTile = yLastTile;
                             continue;
@@ -529,11 +530,8 @@ int main(int argc, char* argv[]){
             float xDiff = xSprite - player.xPos, yDiff = ySprite - player.yPos;
             //Transform sprite world coords into camera coords (direction and plane as basis vecs)
             float denom = player.xPlane * player.yDir - player.yPlane * player.xDir;
-            float xSpriteCam = (player.yDir * xDiff - player.xDir * yDiff) / denom;
-            float ySpriteCam = (-player.yPlane * xDiff + player.xPlane * yDiff) / denom;
-
-            sprites[i].xCamPos = xSpriteCam;
-            sprites[i].yCamPos = ySpriteCam;
+            sprites[i].xCamPos = (player.yDir * xDiff - player.xDir * yDiff) / denom;
+            sprites[i].yCamPos = (-player.yPlane * xDiff + player.xPlane * yDiff) / denom;
 
             spriteZBuffer[i] = i;
         }

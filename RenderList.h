@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include "RenderItem.h"
 #include "map.h"
 
 typedef struct{
@@ -29,14 +30,11 @@ RenderList ListInit(uint32_t startingSize){
 }
 
 void ListAppend(RenderList* list, RayHit item){
-    if(list->head < list->size){
-        list->list_array[list->head] = item;
-        list->head++;
-        return;
+    if(list->size <= list->head){
+        list->size += list->size >> 2;
+        list->list_array = (RayHit*)realloc(list->list_array, sizeof(RayHit) * list->size);
     }
     
-    list->size += list->size >> 2;
-    list->list_array = (RayHit*)realloc(list->list_array, sizeof(RayHit) * list->size);
     list->list_array[list->head] = item;
     list->head++;
 }
