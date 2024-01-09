@@ -5,6 +5,8 @@
 #include "RenderList.h"
 #include "TextureMap.h"
 #include "FixedSizeArena.h"
+#include "Animator.h"
+#include "Definitions.h"
 
 #define SCREEN_WIDTH 711
 #define SCREEN_HEIGHT 400
@@ -14,7 +16,6 @@
 #define TEX_SIZE 32
 #define MAPSIZE 24
 #define UPDATE_TIMER_MS 16 //about 60 ticks per second
-#define FPS_DISPLAY
 
 int map_template[MAPSIZE * MAPSIZE * 2] =
 {
@@ -100,35 +101,6 @@ int floorMap[MAPSIZE * MAPSIZE] =
   3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3
 };
 
-typedef struct{
-    float xPos;
-    float yPos;
-    float xDir;
-    float yDir;
-    float xPlane;
-    float yPlane;
-    float pitch;
-}Player;
-
-typedef struct{
-  Texture tex;
-  float xPos;
-  float yPos;
-  float heightAdjust;
-  float scale;
-  float xCamPos;
-  float yCamPos;
-}Sprite;
-
-typedef struct{
-    float* pos;
-    float* camPos;
-    float* heightAdjust;
-    float* scale;
-    //Texture refs 
-}SpritesSOA;
-
-
 Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 float zBuffer[SCREEN_WIDTH];
 Uint8 timer = 0;
@@ -157,6 +129,17 @@ static Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
   return 0xFF000000 | (nr << 16) | (ng << 8) | (nb);
 }
 
+/*
+fvec2* pos;
+fvec2* normal;
+fvec2* velocity;
+fvec2* camPos;
+float* heightAdjust;
+float* scale;
+Texture** textures;
+Animator* anims;
+*/
+
 int main(int argc, char* argv[]){
     if(SDL_Init(SDL_INIT_EVERYTHING) != 0){
         printf("error initializing SDL: %s\n", SDL_GetError());
@@ -182,7 +165,7 @@ int main(int argc, char* argv[]){
 
     TextureMap wallTextures = Texture_Init("./Textures/wolftextures.png", TEX_SIZE, 1, 9, 9);
     TextureMap spriteTextures = Texture_Init("./Textures/wolfsprites.png", TEX_SIZE, 1, 4, 4);
-    TextureMap characterTextures = Texture_Init("./Textures/character_spritesheet.png", TEX_SIZE, 5, 8, 40);
+    TextureMap characterTextures = Texture_Init("./Textures/enemySprites.png", TEX_SIZE, 8, 5, 40);
 
     SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
@@ -200,8 +183,13 @@ int main(int argc, char* argv[]){
         {Texture_Make(1, &spriteTextures), 7.5, 3.5, 0, 1},
         {Texture_Make(1, &spriteTextures), 8.5, 3.5, -(1-0.45), 0.45},
         {Texture_Make(3, &spriteTextures), 9.5, 3.5, 0, 1},
-        {Texture_Make(0, &characterTextures), 16.5, 5.5, 0, 1}
+        {Texture_Make(0, &characterTextures), 17.5, 6.5, 0, 1}
     };
+
+    Animator doorAnim = Animator_Init(&(Map_GetWall(&Map, 16,4,0)->tex), 32, 0, 8, NULL);
+
+    Uint8 dirOffset[] = {0, 5, 10, 0, 15, 0, 20, 0, 25, 30, 35};
+    Animator enemyAnim = Animator_Init(&(sprites[3].tex), 32, 1, 4, dirOffset);
 
     Uint8 keys[6] = {0,0,0,0,0,0};
     Uint8 running = 1;
@@ -274,8 +262,9 @@ int main(int argc, char* argv[]){
             timer+=1;
 
             ((Door*)Map_GetWall(&Map,16, 4, 0)->typeData)->width = timer/255.0;
-            Map_GetWall(&Map,16, 4, 0)->tex.texID = (Uint8)(timer/255.0 * 7);
+            Animator_NextFrame(&doorAnim);
 
+                
             //=============Move Player==========================
             {
                 if(keys[0] || keys[2]){
@@ -303,6 +292,10 @@ int main(int argc, char* argv[]){
                 player.xPlane = -player.yDir;
                 player.yPlane = player.xDir;
             }
+
+            //Animate and direct enemy sprite
+            Animator_GetDirection(&enemyAnim, (Sprite*)(sprites + 3), &player, 0, -1);
+            Animator_NextFrame(&enemyAnim); //TODO: Do this step when transforming sprite?
         }
 
         //Rendering

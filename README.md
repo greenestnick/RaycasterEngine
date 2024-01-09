@@ -14,6 +14,7 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
 ## Future Features:
 - Proper Animation
 - "3D" sprites
+
 - Better way to design and load map data
 - Proper Fog (Might mix with lighting in some way)
     - If we know the fog will block walls/sprites, we can simply not render them as well
@@ -25,7 +26,7 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
 - Fix mouse control (mostly horizontal direction)
     - One fix is to have the mouse move around the screen as if the screen was torus
 - Add player height control option
-- Appending many columns to the list is quite slow (perhaps passing a rayhit by copy is just too expensive)
+- Raycast efficiency
 
 ### Other possible ideas:
 - Vertically Opening doors (could just use tranparent texture animations)
