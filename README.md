@@ -6,15 +6,14 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
 - Multi-textured walls depending on side
 - Sprites
     - Transparent Sprites
+    - Directional Sprites for a "3D" effect
+    - Simple Animations
 - Doors (Thin Wall)
 - Keyboard and Mouse Controls
 - Looking up and down
 - Transparent Walls & Doors
 
 ## Future Features:
-- Proper Animation
-- "3D" sprites
-
 - Better way to design and load map data
 - Proper Fog (Might mix with lighting in some way)
     - If we know the fog will block walls/sprites, we can simply not render them as well
@@ -23,8 +22,7 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
 ### Smaller Updates:
 - Render the sides of transparent walls, or add option too
 - Use simple shading for walls based on the side
-- Fix mouse control (mostly horizontal direction)
-    - One fix is to have the mouse move around the screen as if the screen was torus
+- Fix mouse control
 - Add player height control option
 - Raycast efficiency
 

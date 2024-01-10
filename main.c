@@ -16,6 +16,7 @@
 #define TEX_SIZE 32
 #define MAPSIZE 24
 #define UPDATE_TIMER_MS 16 //about 60 ticks per second
+#define FPS_DISPLAY
 
 int map_template[MAPSIZE * MAPSIZE * 2] =
 {
@@ -189,7 +190,7 @@ int main(int argc, char* argv[]){
     Animator doorAnim = Animator_Init(&(Map_GetWall(&Map, 16,4,0)->tex), 32, 0, 8, NULL);
 
     Uint8 dirOffset[] = {0, 5, 10, 0, 15, 0, 20, 0, 25, 30, 35};
-    Animator enemyAnim = Animator_Init(&(sprites[3].tex), 32, 1, 4, dirOffset);
+    Animator enemyAnim = Animator_Init(&(sprites[3].tex), 8, 1, 4, dirOffset);
 
     Uint8 keys[6] = {0,0,0,0,0,0};
     Uint8 running = 1;
