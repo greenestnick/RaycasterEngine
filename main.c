@@ -538,7 +538,7 @@ int main(int argc, char* argv[]){
         for(; ii < renderList.head; ii++){
             RayHit* hit = renderList.list_array + ii;
             zBufferAllType[ii] = 0; 
-            sortlist[ii] = (SortStruct){(void*)(hit), sqrt(hit->xRayLength*hit->xRayLength + hit->yRayLength*hit->yRayLength)};
+            sortlist[ii] = (SortStruct){(void*)(hit), player.xDir*hit->xRayLength + player.yDir*hit->yRayLength};
         }
         for(; ii < zBuffLen; ii++){
             zBufferAllType[ii] = 1; 
