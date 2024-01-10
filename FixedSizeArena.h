@@ -30,6 +30,10 @@ void* Arena_Append(Arena*const arena){
     return memPtr;
 }
 
+void* Arena_Get(const Arena*const arena, uint32_t index){
+    return (arena->arena_mem + arena->dataByteSize*index);
+}
+
 void Arena_Flush(Arena*const arena){
     arena->head = 0;
     arena->count = 0;

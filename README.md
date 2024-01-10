@@ -27,6 +27,7 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
 
 ### Possible Optimizations
  - Build the SortStructure array while raycasting/transforming sprites to avoid having to reread all that memory again
+    - Must handle pointers to realloc-ed data that are now dead. Use index instead
  - Build a render_item struct hold only the data needed to render (texCol, perpDist, column, Texture*)
     - We can then eliminate the multi-wall and door_texcol calculations from the render loop
  - move from AOS to SOA
