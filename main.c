@@ -104,7 +104,6 @@ int floorMap[MAPSIZE * MAPSIZE] =
 
 Uint32 pixels[SCREEN_WIDTH*SCREEN_HEIGHT];
 float zBuffer[SCREEN_WIDTH];
-Uint8 timer = 0;
 
 static Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
   Uint8 alpha = (top >> 24);
@@ -141,11 +140,6 @@ Texture** textures;
 Animator* anims;
 */
 
-typedef struct{
-    void* data;
-    float depth;
-}SortStruct;
-
 int main(int argc, char* argv[]){
     if(SDL_Init(SDL_INIT_EVERYTHING) != 0){
         printf("error initializing SDL: %s\n", SDL_GetError());
@@ -173,15 +167,14 @@ int main(int argc, char* argv[]){
     TextureMap spriteTextures = Texture_Init("./Textures/wolfsprites.png", TEX_SIZE, 1, 4, 4);
     TextureMap characterTextures = Texture_Init("./Textures/enemySprites.png", TEX_SIZE, 8, 5, 40);
 
-    
-    
-    Player player = {17.5, 1.5, 0.707, 0.707, -0.707, 0.707, 0};
-    Uint32 xMouseOld = SCREEN_WIDTH/2;
 
     MapStruct Map = Map_Init(MAPSIZE, 1, &wallTextures, map_template);
     Map_AddDoor(&Map, 16, 4, MakeDoor(0.25, 0.4, 1, 0, 1));
     Map_AddDoor(&Map, 15, 5, MakeDoor(0.5, 0.5, 0, 1, 1));
     Map_AddMultiWall(&Map, 19, 6, MakeMultiWall(Texture_Make(1, &wallTextures), Texture_Make(2, &wallTextures), Texture_Make(5, &wallTextures), Texture_Make(6, &wallTextures)));
+
+    Player player = {17.5, 1.5, 0.707, 0.707, -0.707, 0.707, 0};
+    Uint32 xMouseOld = SCREEN_WIDTH/2;
 
     const Uint32 spriteCount = 4;
     Sprite sprites[] = {
@@ -192,19 +185,17 @@ int main(int argc, char* argv[]){
     };
 
     Animator doorAnim = Animator_Init(&(Map_GetWall(&Map, 16,4,0)->tex), 32, 0, 8, NULL);
-
     Uint8 dirOffset[] = {0, 5, 10, 0, 15, 0, 20, 0, 25, 30, 35};
     Animator enemyAnim = Animator_Init(&(sprites[3].tex), 8, 1, 4, dirOffset);
 
+    RenderList renderList = ListInit(SCREEN_WIDTH);    
+
     Uint8 keys[6] = {0,0,0,0,0,0};
-    RenderList renderList = ListInit(SCREEN_WIDTH);
-    
-    
     Uint32 fps_last = SDL_GetTicks();
     Uint32 frameCounter = 0;
-    SDL_Event event;
     Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
     Uint8 running = 1;
+    SDL_Event event;
     while(running){
         
         //=============================FPS Counter=================================
@@ -267,12 +258,7 @@ int main(int argc, char* argv[]){
         //==========================================Update=====================================================================
         if(SDL_GetTicks() - lastTime >= UPDATE_TIMER_MS){
             lastTime = SDL_GetTicks();
-            timer+=1;
 
-            ((Door*)Map_GetWall(&Map,16, 4, 0)->typeData)->width = timer/255.0;
-            Animator_NextFrame(&doorAnim);
-
-                
             //=============Move Player==========================
             {
                 if(keys[0] || keys[2]){
@@ -300,6 +286,8 @@ int main(int argc, char* argv[]){
                 player.xPlane = -player.yDir;
                 player.yPlane = player.xDir;
             }
+
+            Animator_NextFrame(&doorAnim);
 
             //Animate and direct enemy sprite
             Animator_GetDirection(&enemyAnim, (Sprite*)(sprites + 3), &player, 0, -1);

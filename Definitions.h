@@ -34,4 +34,9 @@ typedef struct{
   float yCamPos;
 }Sprite;
 
+typedef struct{
+    void* data;
+    float depth;
+}SortStruct;
+
 #endif
