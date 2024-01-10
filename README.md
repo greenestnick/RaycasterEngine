@@ -24,7 +24,13 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
 - Use simple shading for walls based on the side
 - Fix mouse control
 - Add player height control option
-- Raycast efficiency
+
+### Possible Optimizations
+ - Build the SortStructure array while raycasting/transforming sprites to avoid having to reread all that memory again
+ - Build a render_item struct hold only the data needed to render (texCol, perpDist, column, Texture*)
+    - We can then eliminate the multi-wall and door_texcol calculations from the render loop
+ - move from AOS to SOA
+ - create an arena to pack booleans instead of using uint8_t which wastes 7 bits
 
 ### Other possible ideas:
 - Vertically Opening doors (could just use tranparent texture animations)

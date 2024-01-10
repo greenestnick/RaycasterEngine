@@ -413,7 +413,6 @@ int main(int argc, char* argv[]){
                     float xFinish = xRay/rayNorm * rayLength;
                     float yFinish = yRay/rayNorm * rayLength;
 
-                    //float perpDist = 
                     rayhit = (RayHit){xFinish, yFinish, wallHit, col, steppingInX};
                     
                     if(wallHit->type == WALL_DOOR || doorFlag){
