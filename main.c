@@ -7,6 +7,7 @@
 #include "FixedSizeArena.h"
 #include "Animator.h"
 #include "Definitions.h"
+#include "Vector.h"
 
 #define SCREEN_WIDTH 711
 #define SCREEN_HEIGHT 400
@@ -129,16 +130,14 @@ static Uint32 AlphaBlend(Uint32 top, Uint32 bottom){
   return 0xFF000000 | (nr << 16) | (ng << 8) | (nb);
 }
 
-/*
-fvec2* pos;
-fvec2* normal;
-fvec2* velocity;
-fvec2* camPos;
-float* heightAdjust;
-float* scale;
-Texture** textures;
-Animator* anims;
-*/
+// vec2 objPos[10];
+// vec2 objNorm[10];
+// vec2 objVel[10];
+// vec2 objCamPos[10];
+// float objHeight[10];
+// float objScale[10];
+// Texture* objTex[10];
+// Animator* objAnim[10];
 
 int main(int argc, char* argv[]){
     if(SDL_Init(SDL_INIT_EVERYTHING) != 0){
@@ -183,6 +182,8 @@ int main(int argc, char* argv[]){
         {Texture_Make(3, &spriteTextures), 9.5, 3.5, 0, 1},
         {Texture_Make(0, &characterTextures), 17.5, 6.5, 0, 1}
     };
+    Uint8 spriteZBuffer[spriteCount];
+
 
     Animator doorAnim = Animator_Init(&(Map_GetWall(&Map, 16,4,0)->tex), 32, 0, 8, NULL);
     Uint8 dirOffset[] = {0, 5, 10, 0, 15, 0, 20, 0, 25, 30, 35};
@@ -285,6 +286,20 @@ int main(int argc, char* argv[]){
 
                 player.xPlane = -player.yDir;
                 player.yPlane = player.xDir;
+            }
+
+            //=============Transform Sprites to Player Space==========================
+            for(Uint32 i = 0; i < spriteCount; i++){
+                float xSprite = sprites[i].xPos;
+                float ySprite = sprites[i].yPos;
+
+                float xDiff = xSprite - player.xPos, yDiff = ySprite - player.yPos;
+                //Transform sprite world coords into camera coords (direction and plane as basis vecs)
+                float denom = player.xPlane * player.yDir - player.yPlane * player.xDir;
+                sprites[i].xCamPos = (player.yDir * xDiff - player.xDir * yDiff) / denom;
+                sprites[i].yCamPos = (-player.yPlane * xDiff + player.xPlane * yDiff) / denom;
+
+                spriteZBuffer[i] = i;
             }
 
             Animator_NextFrame(&doorAnim);
@@ -512,24 +527,7 @@ int main(int argc, char* argv[]){
             ListAppend(&renderList, rayhit);
         }
 
-        //==========================================Sprite Transformations==============================================================
-        Uint8 spriteZBuffer[spriteCount];
-        
-        //Calculate all sprites in camera space
-        for(Uint32 i = 0; i < spriteCount; i++){
-            float xSprite = sprites[i].xPos;
-            float ySprite = sprites[i].yPos;
 
-            float xDiff = xSprite - player.xPos, yDiff = ySprite - player.yPos;
-            //Transform sprite world coords into camera coords (direction and plane as basis vecs)
-            float denom = player.xPlane * player.yDir - player.yPlane * player.xDir;
-            sprites[i].xCamPos = (player.yDir * xDiff - player.xDir * yDiff) / denom;
-            sprites[i].yCamPos = (-player.yPlane * xDiff + player.xPlane * yDiff) / denom;
-
-            spriteZBuffer[i] = i;
-        }
-        
-        
         //==========================================Rendering Pass==============================================================
         Uint32 zBuffLen = renderList.head + spriteCount; 
         Uint8 zBufferAllType[zBuffLen];
