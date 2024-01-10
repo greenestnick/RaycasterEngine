@@ -141,6 +141,11 @@ Texture** textures;
 Animator* anims;
 */
 
+typedef struct{
+    void* data;
+    float depth;
+}SortStruct;
+
 int main(int argc, char* argv[]){
     if(SDL_Init(SDL_INIT_EVERYTHING) != 0){
         printf("error initializing SDL: %s\n", SDL_GetError());
@@ -168,8 +173,7 @@ int main(int argc, char* argv[]){
     TextureMap spriteTextures = Texture_Init("./Textures/wolfsprites.png", TEX_SIZE, 1, 4, 4);
     TextureMap characterTextures = Texture_Init("./Textures/enemySprites.png", TEX_SIZE, 8, 5, 40);
 
-    SDL_Event event;
-    Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
+    
     
     Player player = {17.5, 1.5, 0.707, 0.707, -0.707, 0.707, 0};
     Uint32 xMouseOld = SCREEN_WIDTH/2;
@@ -193,11 +197,14 @@ int main(int argc, char* argv[]){
     Animator enemyAnim = Animator_Init(&(sprites[3].tex), 8, 1, 4, dirOffset);
 
     Uint8 keys[6] = {0,0,0,0,0,0};
-    Uint8 running = 1;
-    
     RenderList renderList = ListInit(SCREEN_WIDTH);
+    
+    
     Uint32 fps_last = SDL_GetTicks();
     Uint32 frameCounter = 0;
+    SDL_Event event;
+    Uint32 lastTime = SDL_GetTicks(), lastTimeFrame = 0;
+    Uint8 running = 1;
     while(running){
         
         //=============================FPS Counter=================================
@@ -494,17 +501,17 @@ int main(int argc, char* argv[]){
                     }
 
                     //Setting texture for multiwalls
-                    /*
-                    if(wallHit->type == WALL_MULTI){
-                        if(steppingInX){
-                           MultiWall* mwall = (MultiWall*)wallHit->typeData;
-                           //rayhit.texture = (xRay > 0) ? mwall->left : mwall->right;
-                        }else{
-                            MultiWall* mwall = (MultiWall*)wallHit->typeData;
-                           //rayhit.texture = (yRay > 0) ? mwall->top : mwall->bottom;
-                        }
-                    }
-                    */
+                
+                    // if(wallHit->type == WALL_MULTI){
+                    //     if(steppingInX){
+                    //        MultiWall* mwall = (MultiWall*)wallHit->typeData;
+                    //        //rayhit.texture = (xRay > 0) ? mwall->left : mwall->right;
+                    //     }else{
+                    //         MultiWall* mwall = (MultiWall*)wallHit->typeData;
+                    //        //rayhit.texture = (yRay > 0) ? mwall->top : mwall->bottom;
+                    //     }
+                    // }
+                    
 
                     break;
                 }
@@ -534,63 +541,49 @@ int main(int argc, char* argv[]){
             spriteZBuffer[i] = i;
         }
         
-
+        
         //==========================================Rendering Pass==============================================================
         Uint32 zBuffLen = renderList.head + spriteCount; 
-        void* zBufferAll[zBuffLen];
         Uint8 zBufferAllType[zBuffLen];
+        SortStruct sortlist[zBuffLen];
 
         Uint32 ii = 0;
         //Load zBuffer
         for(; ii < renderList.head; ii++){
-            zBufferAll[ii] = (void*)(renderList.list_array + ii);
+            RayHit* hit = renderList.list_array + ii;
             zBufferAllType[ii] = 0; 
+            sortlist[ii] = (SortStruct){(void*)(hit), sqrt(hit->xRayLength*hit->xRayLength + hit->yRayLength*hit->yRayLength)};
         }
         for(; ii < zBuffLen; ii++){
-            zBufferAll[ii] = (void*)(sprites + (ii - renderList.head));
             zBufferAllType[ii] = 1; 
+            Sprite* sprite = sprites + (ii - renderList.head);
+            sortlist[ii] = (SortStruct){(void*)(sprite), sprite->yCamPos};
         }
-
         
-        //TODO: Sorting is slow, maybe just create sorted list as we go and merge ray/sprite sorted lists together
         //Sorting ZBuffer (BubbleSort)
         for(Uint32 i = 0; i < zBuffLen; i++){
             for(Uint32 j = 1; j < zBuffLen; j++){
-                void* k1 = zBufferAll[j - 1];
-                void* k2 = zBufferAll[j];
-                float d1, d2;
-               
-                if(zBufferAllType[j - 1]){
-                    d1 = ((Sprite*)k1)->yCamPos;
-                }else{
-                    RayHit* rayhit = (RayHit*)k1;
-                    d1 = player.xDir * rayhit->xRayLength + player.yDir * rayhit->yRayLength;
-                }
-                
-                if(zBufferAllType[j]){
-                    d2 = ((Sprite*)k2)->yCamPos;
-                }else{
-                    RayHit* rayhit = (RayHit*)k2;
-                    d2 = player.xDir * rayhit->xRayLength + player.yDir * rayhit->yRayLength;
-                }
-                
-                if(d1 < d2){
-                    zBufferAll[j - 1] = zBufferAll[j];
-                    zBufferAll[j] = k1;
+                void* k1 = sortlist[j - 1].data;
+                void* k2 = sortlist[j].data;
+                float d1 = sortlist[j - 1].depth;
+                float d2 = sortlist[j].depth;
 
+                if(d1 < d2){
                     Uint8 temp = zBufferAllType[j - 1];
                     zBufferAllType[j - 1] = zBufferAllType[j];
                     zBufferAllType[j] = temp;
 
+                    SortStruct tempSortStruct = sortlist[j - 1];
+                    sortlist[j - 1] = sortlist[j];
+                    sortlist[j] = tempSortStruct;
                 }
             }
         }
-        
-
+                
         //Render zBuffer
         for(Uint32 i = 0; i < zBuffLen; i++){
             if(zBufferAllType[i]){
-                Sprite* sprite = (Sprite*)zBufferAll[i];
+                Sprite* sprite = (Sprite*)sortlist[i].data;
                 float xSpriteCam = sprite->xCamPos;
                 float ySpriteCam = sprite->yCamPos;
 
@@ -646,7 +639,7 @@ int main(int argc, char* argv[]){
                     texCol += texStep;
                 }
             }else{
-                RayHit* rayhit = (RayHit*)zBufferAll[i];
+                RayHit* rayhit = (RayHit*)sortlist[i].data;
 
                 //if(rayhit->wallPiece->type == WALL_NULL) continue;
 
