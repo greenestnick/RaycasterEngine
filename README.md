@@ -24,6 +24,7 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
 - Use simple shading for walls based on the side
 - Fix mouse control
 - Add player height control option
+- Fix map system to have 1MAP = 0TEXID and so on
 
 ### Possible Optimizations
  - Build a render_item struct hold only the data needed to render (texCol, perpDist, column, Texture*)
