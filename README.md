@@ -1,7 +1,11 @@
 # Raycaster Engine
 This projects tries to reimplement the 2.5D Graphics technique in games like Wolfenstein. These class of games us a 2D grid combined with raycasting to draw cubes where the wall height is related to the distance to the player. 
 
-![Alt text](./Screenshots/screenshot1.png?raw=true "Textured wall and door.")
+![Alt text](./Screenshots/screenshot1.png?raw=true "Textured wall and door")
+![Alt text](./Screenshots/screenshot2.png?raw=true "Transparent walls. You can see the sprite through both windows")
+![Alt text](./Screenshots/screenshot3.png?raw=true "Directionally based sprites and custom floor map")
+![Alt text](./Screenshots/screenshot4.png?raw=true "Transparent sprites with depth buffer. Scaling sprites")
+![Alt text](./Screenshots/screenshot5.png?raw=true "Multi-textured wall and View pitch feature")
 
 ## Current Features:
 - Textured walls and floors using tile-map
