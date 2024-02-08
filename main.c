@@ -525,11 +525,11 @@ int main(int argc, char* argv[]){
         Uint8 zBufferAllType[zBuffLen];
         SortStruct sortlist[zBuffLen];
 
-        Uint32 ii = 0;
+        Uint32 ii = 0; 
         //Load zBuffer
         for(; ii < renderList.head; ii++){
-            RayHit* hit = renderList.list_array + ii;
             zBufferAllType[ii] = 0; 
+            RayHit* hit = renderList.list_array + ii;
             sortlist[ii] = (SortStruct){(void*)(hit), player.xDir*hit->xRayLength + player.yDir*hit->yRayLength};
         }
         for(; ii < zBuffLen; ii++){
@@ -557,7 +557,7 @@ int main(int argc, char* argv[]){
                 }
             }
         }
-                
+
         //Render zBuffer
         for(Uint32 i = 0; i < zBuffLen; i++){
             if(zBufferAllType[i]){

@@ -25,7 +25,7 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
     - If we know the fog will block walls/sprites, we can simply not render them as well
 - Multiple Levels (requiring multiple raycasting passes for each)
 
-### Smaller Updates:
+### Small Fixes:
 - Render the sides of transparent walls, or add option too
 - Use simple shading for walls based on the side
 - Fix mouse control
@@ -37,6 +37,8 @@ This projects tries to reimplement the 2.5D Graphics technique in games like Wol
     - We can then eliminate the multi-wall and door_texcol calculations from the render loop
  - move from AOS to SOA
  - create an arena to pack booleans instead of using uint8_t which wastes 7 bits
+ - Write to the pixel buffer as rows and transpose at the end. Common case of writing down a column is not cache performant
+ 
 
 ### Other possible ideas:
 - Vertically Opening doors (could just use tranparent texture animations)
