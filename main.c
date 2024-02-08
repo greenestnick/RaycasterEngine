@@ -11,7 +11,7 @@
 
 #define SCREEN_WIDTH 711
 #define SCREEN_HEIGHT 400
-#define WIN_TITLE "Raycaster Game"
+#define WIN_TITLE "Raycaster Engine"
 
 #define MAX_SLOPE 10000000000
 #define TEX_SIZE 32
